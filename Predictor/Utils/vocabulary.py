@@ -11,5 +11,8 @@ class Vocab(object):
         model = gensim.models.KeyedVectors.load_word2vec_format(path)
         id = len(self.init_tokens)
 
+    def tokens2ids(self, tokens):
+        pass
 
-
+    def save(self,path):
+        pass

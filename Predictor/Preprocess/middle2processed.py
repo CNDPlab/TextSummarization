@@ -8,18 +8,7 @@ from collections import Counter
 
 
 args = Config()
-vocab = Vocab()
-vocab.load_pretrained(path=args.pretrained_path)
-
-
-def middle_seg_dump_count():
-    df =
-
-def init_vocab():
-    pass
-
-def gen_processed():
-    pass
+# TODO: add pandas tqdm, finish vocab load,save ,finish single line pipe
 
 
 class Processor(object):
@@ -35,8 +24,6 @@ class Processor(object):
         for processed_file in os.listdir(self.args.processed_folder):
             self.processed2id(processed_file)
 
-
-
     def clean_seg(self,file):
         path = self.args.middle_folder + file
         df = pd.read_json(path)
@@ -51,11 +38,18 @@ class Processor(object):
 
     def gen_vocab(self):
         assert self.counter is not None
-
+        self.vocab = Vocab(counter=self.counter)
+        self.vocab.load_pretrained(self.args.pretrained_path)
+        self.vocab.save(self.args.saved_vocab)
 
     def processed2id(self, file):
         path = self.args.processed_folder + file
         df = pd.read_json(path)
-        df['text_id'] = None
+        df['text_id'] = df.text_seg.apply(self.vocab.tokens2ids)
+        df['title_id'] = df.title_seg.apply(self.vocab.tokens2ids)
+        ndf = df[['text_id','title_id']]
+        ndf.to_json(path)
+
+
 
 

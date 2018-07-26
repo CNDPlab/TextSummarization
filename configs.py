@@ -3,6 +3,6 @@ class Config(object):
     raw_file = 'raw/df.json'
     middle_folder = 'middle/'
     processed_folder = 'processed/'
-
+    pretrained_path = ''
     def parse(self):
         pass

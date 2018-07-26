@@ -1,4 +1,8 @@
+import pickle as pk
+from Predictor.Utils import Vocab
+from configs import Config
 
+args = Config()
 
 def single_line_pipe_preprocess(input):
 
@@ -6,4 +10,4 @@ def single_line_pipe_preprocess(input):
 
 
 def single_line_pipe_predict(input):
-    pass
+    vocab = pk.load(open(args.saved_vocab,'rb'))

@@ -7,6 +7,5 @@ class Config(object):
     saved_vocab = 'Predictor/Utils/vocab.pkl'
 
 
-
     def parse(self):
         pass

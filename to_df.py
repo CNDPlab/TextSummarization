@@ -17,5 +17,15 @@ for i in tqdm(data):
 print(len(content))
 print(len(contenttitle))
 
-df = pd.DataFrame({'text': content,'title':contenttitle})
-df.to_json('raw/df.json')
+import pandas as pd
+
+ct = [i if i != '' else None for i in content]
+
+ctt = [i if i != '' else None for i in contenttitle]
+
+df2 = pd.DataFrame({'text': ct,'title':ctt})
+
+df2 = df2.dropna().drop_duplicates()
+df2.to_json('raw/df.json')
+
+df2.to_json('raw/df.json')

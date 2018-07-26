@@ -1,0 +1,4 @@
+
+
+class Vocab(object):
+    pass

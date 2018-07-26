@@ -5,7 +5,7 @@ class Config(object):
     processed_folder = 'processed/'
     pretrained_path = ''
     saved_vocab = 'Predictor/Utils/vocab.pkl'
-    
+
 
 
     def parse(self):

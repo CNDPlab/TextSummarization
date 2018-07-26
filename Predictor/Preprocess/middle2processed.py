@@ -1,4 +1,4 @@
-from .single_line_pipe import single_line_pipe
+from Predictor.Preprocess import single_line_pipe_preprocess
 from Predictor.Utils import Vocab
 from configs import Config
 

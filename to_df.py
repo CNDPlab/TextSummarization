@@ -10,7 +10,7 @@ with open('raw/corpus.txt') as reader:
 content = []
 contenttitle = []
 
-for i in tqdm(data):
+for i in tqdm(data[:1000]):
     line = BeautifulSoup(i, 'lxml')
     if line.content != None:
         content.append(line.content.text)
@@ -23,10 +23,13 @@ ctt = [i if i != '' else None for i in contenttitle]
 df2 = pd.DataFrame({'text': ct,'title':ctt})
 df2 = df2.dropna().drop_duplicates()
 
-train, test = train_test_split(df2, test_size=0.1)
-test, dev = train_test_split(test, test_size=0.5)
+train, test = train_test_split(df2, test_size=0.1, random_state=1)
+test, dev = train_test_split(test, test_size=0.5, random_state=1)
 
 import os
+import shutil
+if os.path.exists('middle/'):
+    shutil.rmtree('middle/')
 os.mkdir('middle/')
 
 train.to_json('middle/train.json')

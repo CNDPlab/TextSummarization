@@ -10,4 +10,5 @@ class BaseModel(t.nn.Module):
         self.decoder = RnnDecoder()
 
     def forward(self, *input):
-        for i in
+        pass
+

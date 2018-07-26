@@ -8,8 +8,6 @@ vocab = Vocab()
 vocab.load_pretrained(path=args.pretrained_path)
 
 
-
-
 def middle_seg_dump_count():
     pass
 

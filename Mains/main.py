@@ -1,6 +1,5 @@
-import fire
 from configs import Config
-from Predictor import Models
+
 
 def prepare():
     pass

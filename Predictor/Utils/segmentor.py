@@ -7,7 +7,7 @@ def clean(input):
 
 def Segmentor(input):
     input = clean(input)
-    seg = pyhanlp.HanLP.segment(input)
-    res = [i.toString().split('/')[0] for i in seg]
+    seg = list(pyhanlp.HanLP.segment(input))
+    res = [i.word for i in seg]
     return res
 

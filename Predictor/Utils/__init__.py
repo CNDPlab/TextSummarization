@@ -1,2 +1,3 @@
 from .segmentor import Segmentor
-from .vocabulary import Vocab
+from .vocab import Vocab
+from .single_line_pipe import single_line_pipe

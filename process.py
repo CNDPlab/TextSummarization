@@ -11,11 +11,11 @@ from cytoolz import concatv
 import gc
 import os
 import pickle as pk
+from pathos.multiprocessing import ProcessingPool as Pool
 import shutil
+import pyhanlp
 
 
-
-## raw to middle/seg
 args = Config()
 with open('raw/corpus.txt') as reader:
     data = reader.readlines()
@@ -30,25 +30,26 @@ for i in tqdm(data):
     elif line.contenttitle != None:
         ctt.append(line.contenttitle.text)
 
-
 ct = [i if i != '' else None for i in ct]
 ctt = [i if i != '' else None for i in ctt]
 
 filted_datas = [{'text': i[0], 'title': i[1]} for i in zip(ct, ctt) if (i[0] is None) | (i[1] is None)]
 datas = [{'text': i[0], 'title': i[1]} for i in zip(ct, ctt) if (i[0] is not None) & (i[1] is not None)]
 
-new_datas = []
-for i in tqdm(datas,desc='segmenting'):
-    ni = i.copy()
-    ni['text_seg'] = ['<BOS>'] + Segmentor(i['text']) + ['<EOS>']
-    ni['title_seg'] = ['<BOS>'] + Segmentor(i['title']) + ['<EOS>']
-    new_datas.append(ni)
-del datas,ct,ctt
-gc.collect()
 
-train, test = train_test_split(new_datas, test_size=0.1, random_state=1)
+from Predictor.Utils.seg_func import seg_func
+
+from concurrent.futures import ProcessPoolExecutor
+with ProcessPoolExecutor(30) as exe:
+    result = exe.map(seg_func,datas)
+
+n_datas = []
+for i in tqdm(result):
+    n_datas.append(i)
+
+train, test = train_test_split(n_datas, test_size=0.1, random_state=1)
 test, dev = train_test_split(test, test_size=0.5, random_state=1)
-del new_datas
+del n_datas,datas,data
 gc.collect()
 
 
@@ -57,19 +58,18 @@ if os.path.exists(args.middle_folder):
 os.mkdir(args.middle_folder)
 
 with open(args.middle_folder+'train.json','w') as writer:
-    for i in tqdm(train,desc='writing train'):
+    for i in tqdm(train, desc='writing train'):
         json.dump(i, writer, ensure_ascii=False)
         writer.write('\n')
 with open(args.middle_folder+'test.json','w') as writer:
-    for i in tqdm(test,desc='writing train'):
-        json.dump(i, writer, ensure_ascii=False)
-        writer.write('\n')
-with open(args.middle_folder+'dev.json','w') as writer:
-    for i in tqdm(dev,desc='writing train'):
+    for i in tqdm(test, desc='writing test'):
         json.dump(i, writer, ensure_ascii=False)
         writer.write('\n')
 
-## train w2v gen vocab
+with open(args.middle_folder+'dev.json','w') as writer:
+    for i in tqdm(dev, desc='writing dev'):
+        json.dump(i, writer, ensure_ascii=False)
+        writer.write('\n')
 
 del train,test,dev
 gc.collect()
@@ -85,7 +85,6 @@ class Sentance(object):
     def __iter__(self):
         for i in concatv(self.text_seg,self.title_seg):
             yield i
-
 
 print('generating w2v')
 sentance = Sentance()
@@ -114,7 +113,7 @@ os.mkdir(args.processed_folder)
 
 
 with open(args.middle_folder+'train.json') as reader, open(args.processed_folder+'train.json','w') as writer:
-    for line in reader:
+    for line in tqdm(reader,desc='saving train'):
         nline = json.loads(line)
         nline['text_id'] = [vocab.from_token_id(i) for i in nline['text_seg']]
         nline['title_id'] = [vocab.from_token_id(i) for i in nline['title_seg']]
@@ -122,7 +121,7 @@ with open(args.middle_folder+'train.json') as reader, open(args.processed_folder
         writer.write('\n')
 
 with open(args.middle_folder+'test.json') as reader, open(args.processed_folder+'test.json','w') as writer:
-    for line in reader:
+    for line in tqdm(reader,desc='saving test'):
         nline = json.loads(line)
         nline['text_id'] = [vocab.from_token_id(i) for i in nline['text_seg']]
         nline['title_id'] = [vocab.from_token_id(i) for i in nline['title_seg']]
@@ -130,9 +129,10 @@ with open(args.middle_folder+'test.json') as reader, open(args.processed_folder+
         writer.write('\n')
 
 with open(args.middle_folder+'dev.json') as reader, open(args.processed_folder+'dev.json','w') as writer:
-    for line in reader:
+    for line in tqdm(reader,desc='saving dev'):
         nline = json.loads(line)
         nline['text_id'] = [vocab.from_token_id(i) for i in nline['text_seg']]
         nline['title_id'] = [vocab.from_token_id(i) for i in nline['title_seg']]
         json.dump(nline, writer, ensure_ascii=False)
         writer.write('\n')
+

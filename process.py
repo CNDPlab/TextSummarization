@@ -111,28 +111,49 @@ if os.path.exists(args.processed_folder):
     shutil.rmtree(args.processed_folder)
 os.mkdir(args.processed_folder)
 
+if os.path.exists(args.processed_folder + 'train/'):
+    shutil.rmtree(args.processed_folder + 'train/')
+os.mkdir(args.processed_folder + 'train/')
 
-with open(args.middle_folder+'train.json') as reader, open(args.processed_folder+'train.json','w') as writer:
+if os.path.exists(args.processed_folder + 'test/'):
+    shutil.rmtree(args.processed_folder + 'test/')
+os.mkdir(args.processed_folder + 'test/')
+
+if os.path.exists(args.processed_folder + 'dev/'):
+    shutil.rmtree(args.processed_folder + 'dev/')
+os.mkdir(args.processed_folder + 'dev/')
+
+i = 0
+with open(args.middle_folder+'train.json') as reader:
     for line in tqdm(reader,desc='saving train'):
         nline = json.loads(line)
         nline['text_id'] = [vocab.from_token_id(i) for i in nline['text_seg']]
         nline['title_id'] = [vocab.from_token_id(i) for i in nline['title_seg']]
-        json.dump(nline, writer, ensure_ascii=False)
-        writer.write('\n')
+        with open(args.processed_folder + 'train/' + str(i) +'train.json','w') as writer:
+            json.dump(nline, writer, ensure_ascii=False)
+            writer.write('\n')
+            i += 1
 
-with open(args.middle_folder+'test.json') as reader, open(args.processed_folder+'test.json','w') as writer:
+i = 0
+with open(args.middle_folder+'test.json') as reader:
     for line in tqdm(reader,desc='saving test'):
         nline = json.loads(line)
         nline['text_id'] = [vocab.from_token_id(i) for i in nline['text_seg']]
         nline['title_id'] = [vocab.from_token_id(i) for i in nline['title_seg']]
-        json.dump(nline, writer, ensure_ascii=False)
-        writer.write('\n')
+        with open(args.processed_folder + 'test/' + str(i) +'test.json','w') as writer:
+            json.dump(nline, writer, ensure_ascii=False)
+            writer.write('\n')
+            i += 1
 
-with open(args.middle_folder+'dev.json') as reader, open(args.processed_folder+'dev.json','w') as writer:
+i = 0
+with open(args.middle_folder+'dev.json') as reader:
     for line in tqdm(reader,desc='saving dev'):
         nline = json.loads(line)
         nline['text_id'] = [vocab.from_token_id(i) for i in nline['text_seg']]
         nline['title_id'] = [vocab.from_token_id(i) for i in nline['title_seg']]
-        json.dump(nline, writer, ensure_ascii=False)
-        writer.write('\n')
+        with open(args.processed_folder + 'dev/' + str(i) +'dev.json','w') as writer:
+            json.dump(nline, writer, ensure_ascii=False)
+            writer.write('\n')
+            i += 1
+
 

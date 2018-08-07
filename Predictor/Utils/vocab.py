@@ -23,7 +23,7 @@ class Vocab(object):
             self.word_counter[word] = 1
 
     def filter_rare_word_build_vocab(self, min_count):
-        common_words = [i for i, v in self.word_counter.items() if v >= min_count]
+        common_words = [i for i, v in self.word_counter.most_common(80000) if v >= min_count]
         print(f'filtered {len(self.word_counter)-len(common_words)} words,{len(common_words)} left')
         for index, word in enumerate(common_words):
             self.token2id[word] = index + self.offset

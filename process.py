@@ -54,16 +54,16 @@ if os.path.exists(args.middle_folder):
     shutil.rmtree(args.middle_folder)
 os.mkdir(args.middle_folder)
 
-with open(args.middle_folder+'train.json','w') as writer:
+with open(args.middle_folder+'train.json', 'w') as writer:
     for i in tqdm(train, desc='writing train'):
         json.dump(i, writer, ensure_ascii=False)
         writer.write('\n')
-with open(args.middle_folder+'test.json','w') as writer:
+with open(args.middle_folder+'test.json', 'w') as writer:
     for i in tqdm(test, desc='writing test'):
         json.dump(i, writer, ensure_ascii=False)
         writer.write('\n')
 
-with open(args.middle_folder+'dev.json','w') as writer:
+with open(args.middle_folder+'dev.json', 'w') as writer:
     for i in tqdm(dev, desc='writing dev'):
         json.dump(i, writer, ensure_ascii=False)
         writer.write('\n')

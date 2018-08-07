@@ -22,7 +22,8 @@ class Decoder(t.nn.Module):
                 encoder_hidden_states=None,
                 decoder_init_state=None,
                 embedding=None,
-                use_teacher_forcing=True):
+                use_teacher_forcing=True,
+                use_attention=True):
         """
         :param true_seq: [b,s]
         :param encoder_hidden_states: [b,s,h]
@@ -74,6 +75,16 @@ class Decoder(t.nn.Module):
         output_token = self.projection(output_state)
         output_token = t.nn.functional.log_softmax(output_token, dim=-1).topk(1)[1]
         return output_token.long().squeeze(), hidden_state
+
+    def beam_search(self, decoder_init_state, embedding, init_topk=5):
+        batch_size = decoder_init_state.size()[0]
+        input_token = t.Tensor([self.sos_id]*batch_size).long()
+        input_hidden_state = decoder_init_state.transpose(0, 1)
+        for step in range(self.max_lenth):
+            topk_tokens, topk_hidden_state = self.beam_search_step()
+
+    def beam_search_step(self, topk):
+        pass
 
 
 def test():

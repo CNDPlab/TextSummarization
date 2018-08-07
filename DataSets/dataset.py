@@ -53,7 +53,7 @@ def own_collate_fn(batch):
 
 
 ###########################################################
-tset = DataSet('sample_processed/train/')
+tset = DataSet('processed/train/')
 tload = DataLoader(tset,3, collate_fn=own_collate_fn)
 text_id, title_id, text_len = tload.__iter__().__next__()
 

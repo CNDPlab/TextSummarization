@@ -5,7 +5,7 @@ class Decoder(t.nn.Module):
     """
     simple rnn decoder without attention , using teacher forcing
     """
-    def __init__(self, input_size, hidden_size, max_lenth, sos_id, eos_id, vocab_size):
+    def __init__(self, input_size, hidden_size, max_lenth, sos_id, eos_id, vocab_size, num_layer):
         super(Decoder, self).__init__()
         self.max_lenth = max_lenth
         self.vocab_size = vocab_size
@@ -14,7 +14,8 @@ class Decoder(t.nn.Module):
                             hidden_size=hidden_size,
                             bidirectional=False,
                             dropout=0,
-                            batch_first=True
+                            batch_first=True,
+                            num_layers=num_layer
                             )
         self.projection = t.nn.Sequential(t.nn.Linear(hidden_size, self.vocab_size))
 
@@ -38,29 +39,40 @@ class Decoder(t.nn.Module):
         input_hidden_state = decoder_init_state.transpose(0, 1)
         output_token_list = []
         output_hidden_state_list = []
-        output_seq_lenth = {i: self.max_lenth for i in range(batch_size)}
         ended_seq_id = []
-        for step in range(self.max_lenth):
-            if use_teacher_forcing:
-                # the first token in true_seq is sos
+        if use_teacher_forcing:
+            output_seq_lenth = {i: true_seq.size()[-1] for i in range(batch_size)}
+            for step in range(true_seq.size()[-1]):
                 input_token = true_seq[:, step]  # input_token: [Batch_size]
                 input_token, input_hidden_state = self.forward_step(input_token,
                                                                     input_hidden_state,
                                                                     embedding)
-            else:
+                output_token_list.append(input_token)
+                output_hidden_state_list.append(input_hidden_state)
+                if len(input_token) != 0:
+                    for i, v in enumerate(input_token):
+                        if (i not in ended_seq_id) & (v.item() == self.eos_id):
+                            output_seq_lenth[i] = step
+                            ended_seq_id.append(i)
+                if len(ended_seq_id) == batch_size:
+                    break
+
+        else:
+            output_seq_lenth = {i: self.max_lenth for i in range(batch_size)}
+            for step in range(self.max_lenth):
                 input_token, input_hidden_state = self.forward_step(input_token,
                                                                     input_hidden_state,
                                                                     embedding)
-            output_token_list.append(input_token)
-            output_hidden_state_list.append(input_hidden_state)
+                output_token_list.append(input_token)
+                output_hidden_state_list.append(input_hidden_state)
 
-            if len(input_token) != 0:
-                for i, v in enumerate(input_token):
-                    if (i not in ended_seq_id) & (v.item() == self.eos_id):
-                        output_seq_lenth[i] = step
-                        ended_seq_id.append(i)
-            if len(ended_seq_id) == batch_size:
-                break
+                if len(input_token) != 0:
+                    for i, v in enumerate(input_token):
+                        if (i not in ended_seq_id) & (v.item() == self.eos_id):
+                            output_seq_lenth[i] = step
+                            ended_seq_id.append(i)
+                if len(ended_seq_id) == batch_size:
+                    break
         return output_token_list, output_hidden_state_list, output_seq_lenth
 
     def forward_step(self, input_token, input_hidden_state, embedding):

@@ -1,8 +1,9 @@
 import numpy as np
-from torch.utils.data import Dataset,DataLoader
+from torch.utils.data import Dataset
 import os
 import json
 import itertools
+import torch as t
 
 
 class DataSet(Dataset):
@@ -14,7 +15,8 @@ class DataSet(Dataset):
     def __getitem__(self, item):
         line = json.load(open(self.files[item]))
         text_len = len(line['text_id'])
-        return np.array(line['text_id']), np.array(line['title_id']), text_len
+        title_len = len(line['title_id'])
+        return np.array(line['text_id']), np.array(line['title_id']), text_len, title_len
 
 
     def __len__(self):
@@ -23,13 +25,13 @@ class DataSet(Dataset):
 
 def own_collate_fn(batch):
     batch.sort(key=lambda x: len(x[0]), reverse=True)
-    text_id, title_id, text_len = zip(*batch)
+    text_id,title_id,text_len,title_len = zip(*batch)
     #pad batch
     text_id = list(itertools.zip_longest(*text_id, fillvalue=0))
     text_id = np.asarray(text_id).transpose().tolist()
     title_id = list(itertools.zip_longest(*title_id, fillvalue=0))
     title_id = np.asarray(title_id).transpose().tolist()
-    return text_id, title_id, text_len
+    return t.Tensor(text_id).long(), t.Tensor(title_id).long(), t.Tensor(text_len), t.Tensor(title_len)
 
 # def own_collate_fn(batch):
 #     batch.sort(key=lambda x: len(x[0]), reverse=True)
@@ -53,8 +55,6 @@ def own_collate_fn(batch):
 
 
 ###########################################################
-tset = DataSet('processed/train/')
-tload = DataLoader(tset,3, collate_fn=own_collate_fn)
-text_id, title_id, text_len = tload.__iter__().__next__()
-
-
+# tset = DataSet('sample_processed/train/')
+# tload = DataLoader(tset,3, collate_fn=own_collate_fn)
+# text_id, title_id, text_len, title_len = tload.__iter__().__next__()

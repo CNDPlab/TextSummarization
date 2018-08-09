@@ -1,6 +1,6 @@
 import os
 import pyltp
-from pyltp import Segmentor,Postagger
+from pyltp import Segmentor, Postagger
 
 
 class Seg_only(object):

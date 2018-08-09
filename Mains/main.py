@@ -1,7 +1,6 @@
 from configs import Config
 from torch.utils.data import DataLoader
 import torch as t
-
 from Predictor.Utils import Vocab
 import pickle as pk
 from DataSets import DataSet, own_collate_fn
@@ -21,7 +20,6 @@ vocab = pk.load(open('Predictor/Utils/vocab.pkl', 'rb'))
 model = EncoderDecoder(matrix=vocab.matrix, args=args)
 optimizer = t.optim.Adam(model.parameters())
 loss =
-
 
 
 def prepare():

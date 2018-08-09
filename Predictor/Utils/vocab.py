@@ -5,22 +5,15 @@ import pickle as pk
 
 
 class Vocab(object):
-    def __init__(self, init_token=['<PAD>','<UNK>']):
+    def __init__(self, init_token=['<PAD>', '<UNK>']):
         self.init_token = init_token
-        self.word_counter = {}
+        self.word_counter = Counter()
         self.offset = len(self.init_token)
-        self.token2id = {v:i for i,v in enumerate(self.init_token)}
-        self.id2token = {i:v for i,v in enumerate(self.init_token)}
+        self.token2id = {v: i for i, v in enumerate(self.init_token)}
+        self.id2token = {i: v for i, v in enumerate(self.init_token)}
 
     def add_sentance(self, sentance):
-        for word in sentance:
-            self.add_word(word)
-
-    def add_word(self, word):
-        if word in self.word_counter:
-            self.word_counter[word] += 1
-        else:
-            self.word_counter[word] = 1
+        self.word_counter.update(sentance)
 
     def filter_rare_word_build_vocab(self, min_count):
         common_words = [i for i, v in self.word_counter.most_common(80000) if v >= min_count]

@@ -31,8 +31,13 @@ ct = [i if i != '' else None for i in ct]
 ctt = [i if i != '' else None for i in ctt]
 
 filted_datas = [{'text': i[0], 'title': i[1]} for i in zip(ct, ctt) if (i[0] is None) | (i[1] is None)]
-datas = [{'text': i[0], 'title': i[1]} for i in zip(ct, ctt) if (i[0] is not None) & (i[1] is not None)]
+datas = [{'text': i[0], 'title': i[1]} for i in zip(ct, ctt) if (i[0] is not None) & (i[1] is not None) & (len(i[0] > 50)) & (len(i[0] < 500))]
 
+print(f'filtered {len(filted_datas)} lines which is None or too long, too short {len(datas)} left')
+before = len(datas)
+datas = [i for i in set(datas)]
+after = len(datas)
+print(f'{before-after} droped for repeat')
 
 from Predictor.Utils.seg_func import seg_func
 
@@ -54,16 +59,16 @@ if os.path.exists(args.middle_folder):
     shutil.rmtree(args.middle_folder)
 os.mkdir(args.middle_folder)
 
-with open(args.middle_folder+'train.json','w') as writer:
+with open(args.middle_folder+'train.json', 'w') as writer:
     for i in tqdm(train, desc='writing train'):
         json.dump(i, writer, ensure_ascii=False)
         writer.write('\n')
-with open(args.middle_folder+'test.json','w') as writer:
+with open(args.middle_folder+'test.json', 'w') as writer:
     for i in tqdm(test, desc='writing test'):
         json.dump(i, writer, ensure_ascii=False)
         writer.write('\n')
 
-with open(args.middle_folder+'dev.json','w') as writer:
+with open(args.middle_folder+'dev.json', 'w') as writer:
     for i in tqdm(dev, desc='writing dev'):
         json.dump(i, writer, ensure_ascii=False)
         writer.write('\n')
@@ -91,7 +96,7 @@ for i in tqdm(sentance):
     counter.update(Counter(i))
     vocab.add_sentance(i)
 
-model = gensim.models.Word2Vec(size=args.embedding_dim,min_count=5,workers=16, sg=1)
+model = gensim.models.Word2Vec(size=args.embedding_dim, min_count=5, workers=16, sg=1)
 model.build_vocab(sentance)
 print('building vocab')
 model.train(sentance, total_examples=model.corpus_count, epochs=model.iter)

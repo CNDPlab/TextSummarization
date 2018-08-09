@@ -4,8 +4,19 @@ class Config(object):
     middle_folder = 'middle/'
     processed_folder = 'processed/'
     saved_vocab = 'Predictor/Utils/vocab.pkl'
+    tensorboard_root = 'ckpt/logs/'
+    saved_model_root = 'ckpt/saved_models/'
     embedding_dim = 128
+    epochs = 20
 
+    batch_size = 32
+    padding_idx = 0
+    hidden_size = 128
+    dropout = 0.5
+    num_layers = 2
+    sos_id = 2
+    eos_id = 3
+    decoding_max_lenth = 8
 
     def parse(self):
         pass

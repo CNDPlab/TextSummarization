@@ -77,5 +77,6 @@ def test_cuda():
     print(hidden_states.shape)
     print(final_states.shape)
 
+
 if __name__ == '__main__':
     test()

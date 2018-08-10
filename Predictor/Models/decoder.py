@@ -1,5 +1,7 @@
 import torch as t
+import numpy as np
 import ipdb
+import collections
 
 
 class Decoder(t.nn.Module):
@@ -75,7 +77,8 @@ class Decoder(t.nn.Module):
                             ended_seq_id.append(i)
                 if len(ended_seq_id) == batch_size:
                     break
-        return output_token_list, output_hidden_state_list, output_seq_lenth
+        output_seq_lenth = np.asarray([val for key, val in sorted(output_seq_lenth.items())])
+        return t.stack(output_token_list).transpose(0,1), t.stack(output_hidden_state_list).transpose(0,2), t.from_numpy(output_seq_lenth)
 
     def forward_step(self, input_token, input_hidden_state, embedding):
         """
@@ -88,7 +91,7 @@ class Decoder(t.nn.Module):
         output_state, hidden_state = self.rnn(input_vector, input_hidden_state)
         output_token = self.projection(output_state)
         output_token = t.nn.functional.log_softmax(output_token, dim=-1).topk(1)[1]
-        return output_token.long().squezze(), hidden_state
+        return output_token.long().squeeze(), hidden_state
 
 
     def reduce_mul(self,l):
@@ -163,23 +166,20 @@ class Decoder(t.nn.Module):
 
 
 def test():
-    # true_seq = t.Tensor([[2, 6, 4, 4, 4, 3, 0, 0], [2, 4, 4, 4, 3, 0, 0, 0]]).long()
-    # encoder_hidden_state = t.randn((2, 8, 7))
+    true_seq = t.Tensor([[2, 6, 4, 4, 4, 3, 0, 0], [2, 4, 4, 4, 3, 0, 0, 0]]).long()
+    encoder_hidden_state = t.randn((2, 8, 7))
     decoder_init_state = t.randn((2, 1, 7))
-    # embedding = t.nn.Embedding(10, 7, padding_idx=0)
-    # decoder = Decoder(input_size=7, hidden_size=7, max_lenth=5, sos_id=2, eos_id=3, vocab_size=7)
-    # output_token_list, output_hidden_state_list, output_seq_lenth = decoder(true_seq, encoder_hidden_state, decoder_init_state, embedding,False)
-    # print(output_token_list)
-    # print(output_hidden_state_list)
-    # print(output_seq_lenth)
-
-    decoder = Decoder(input_size=7, hidden_size=7, max_lenth=5, sos_id=2, eos_id=3, vocab_size=7,beam_size=3,num_layer=1)
     embedding = t.nn.Embedding(10, 7, padding_idx=0)
-    beam = decoder.beam_search(decoder_init_state[:1,:,:],embedding)
-    print(beam)
+    decoder = Decoder(input_size=7, hidden_size=7, max_lenth=5, sos_id=2, eos_id=3, vocab_size=7,beam_size=3, num_layer=1)
+    output_token_list, output_hidden_state_list, output_seq_lenth = decoder(true_seq, encoder_hidden_state, decoder_init_state, embedding,False)
+    print(output_token_list)
+    print(output_hidden_state_list)
+    print(output_seq_lenth)
 
-
-
+    # decoder = Decoder(input_size=7, hidden_size=7, max_lenth=5, sos_id=2, eos_id=3, vocab_size=7,beam_size=3,num_layer=1)
+    # embedding = t.nn.Embedding(10, 7, padding_idx=0)
+    # beam = decoder.beam_search(decoder_init_state[:1,:,:],embedding)
+    # print(beam)
 
 
 

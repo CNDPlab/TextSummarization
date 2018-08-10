@@ -19,7 +19,7 @@ class Trainner(object):
         #TODO add model resume func
         os.mkdir(self.args.tensorboard_root+self.init_time+'/')
         self.summary_writer = SummaryWriter(args.tensorboard_root+self.init_time+'/')
-        for epoch in range(self.epochs):
+        for epoch in range(self.args.epochs):
             self._train_epoch(model, optimizer, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio)
             self.global_epoch += 1
 

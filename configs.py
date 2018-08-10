@@ -6,6 +6,9 @@ class Config(object):
     saved_vocab = 'Predictor/Utils/vocab.pkl'
     tensorboard_root = 'ckpt/logs/'
     saved_model_root = 'ckpt/saved_models/'
+    model_name = 'encoder_decoder'
+    #TODO check device using
+    device = 'gpu:0'
     embedding_dim = 128
     epochs = 20
 
@@ -18,5 +21,9 @@ class Config(object):
     eos_id = 3
     decoding_max_lenth = 8
 
+    eval_every_step = 100
+
+
     def parse(self):
+        #TODO add parse func
         pass

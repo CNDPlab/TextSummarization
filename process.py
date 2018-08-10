@@ -2,6 +2,7 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 from sklearn.model_selection import train_test_split
 import gensim
+import pandas as pd
 from configs import Config
 from collections import Counter
 from Predictor.Utils.vocab import Vocab
@@ -12,35 +13,39 @@ import os
 import pickle as pk
 import shutil
 
-
 args = Config()
-with open('raw/corpus.txt') as reader:
-    data = reader.readlines()
 
-ct = []
-ctt = []
+if os.path.exists('raw/ct.pk'):
+    if os.path.exists('raw/ctt.pk'):
+        ct = pk.load(open('raw/ct.pk', 'rb'))
+        ctt = pk.load(open('raw/ctt.pk', 'rb'))
+else:
+    with open('raw/corpus.txt') as reader:
+        data = reader.readlines()
 
-for i in tqdm(data):
-    line = BeautifulSoup(i, 'lxml')
-    if line.content is not None:
-        ct.append(line.content.text)
-    elif line.contenttitle is not None:
-        ctt.append(line.contenttitle.text)
+    ct = []
+    ctt = []
 
-ct = [i if i != '' else None for i in ct]
-ctt = [i if i != '' else None for i in ctt]
+    for i in tqdm(data):
+        line = BeautifulSoup(i, 'lxml')
+        if line.content is not None:
+            ct.append(line.content.text)
+        elif line.contenttitle is not None:
+            ctt.append(line.contenttitle.text)
 
-filted_datas = [{'text': i[0], 'title': i[1]} for i in zip(ct, ctt) if (i[0] is None) | (i[1] is None)]
-datas = [{'text': i[0], 'title': i[1]} for i in zip(ct, ctt) if (i[0] is not None) & (i[1] is not None) & (len(i[0] > 50)) & (len(i[0] < 500))]
+    ct = [i if i != '' else None for i in ct]
+    ctt = [i if i != '' else None for i in ctt]
+    pk.dump(ct, open('raw/ct.pk', 'wb'))
+    pk.dump(ctt, open('raw/ctt.pk', 'wb'))
 
-print(f'filtered {len(filted_datas)} lines which is None or too long, too short {len(datas)} left')
-before = len(datas)
-datas = [i for i in set(datas)]
-after = len(datas)
-print(f'{before-after} droped for repeat')
+df = pd.DataFrame({'text': ct, 'title': ctt})
+df = df.dropna()
+df = df.drop_duplicates()
+#df = df[(df['text'].apply(len) > 50) & (df['text'].apply(len) < 500)]
+datas = [{'text': v['text'], 'title': v['title']} for i, v in df.iterrows()]
+print(f'total {len(datas)} data')
 
 from Predictor.Utils.seg_func import seg_func
-
 from concurrent.futures import ProcessPoolExecutor
 with ProcessPoolExecutor(30) as exe:
     result = exe.map(seg_func, datas)
@@ -51,7 +56,7 @@ for i in tqdm(result):
 
 train, test = train_test_split(n_datas, test_size=0.1, random_state=1)
 test, dev = train_test_split(test, test_size=0.5, random_state=1)
-del n_datas, datas, data
+del n_datas, datas
 gc.collect()
 
 
@@ -132,10 +137,11 @@ with open(args.middle_folder+'train.json') as reader:
         nline = json.loads(line)
         nline['text_id'] = [vocab.from_token_id(i) for i in nline['text_seg']]
         nline['title_id'] = [vocab.from_token_id(i) for i in nline['title_seg']]
-        with open(args.processed_folder + 'train/' + str(i) +'train.json', 'w') as writer:
-            json.dump(nline, writer, ensure_ascii=False)
-            writer.write('\n')
-            i += 1
+        if (len(nline['text_id']) > 50) & (len(nline['text_id']) < 500):
+            with open(args.processed_folder + 'train/' + str(i) +'train.json', 'w') as writer:
+                json.dump(nline, writer, ensure_ascii=False)
+                writer.write('\n')
+                i += 1
 
 i = 0
 with open(args.middle_folder+'test.json') as reader:
@@ -143,10 +149,12 @@ with open(args.middle_folder+'test.json') as reader:
         nline = json.loads(line)
         nline['text_id'] = [vocab.from_token_id(i) for i in nline['text_seg']]
         nline['title_id'] = [vocab.from_token_id(i) for i in nline['title_seg']]
-        with open(args.processed_folder + 'test/' + str(i) +'test.json', 'w') as writer:
-            json.dump(nline, writer, ensure_ascii=False)
-            writer.write('\n')
-            i += 1
+        if (len(nline['text_id']) > 50) & (len(nline['text_id']) < 500):
+
+            with open(args.processed_folder + 'test/' + str(i) +'test.json', 'w') as writer:
+                json.dump(nline, writer, ensure_ascii=False)
+                writer.write('\n')
+                i += 1
 
 i = 0
 with open(args.middle_folder+'dev.json') as reader:
@@ -154,9 +162,11 @@ with open(args.middle_folder+'dev.json') as reader:
         nline = json.loads(line)
         nline['text_id'] = [vocab.from_token_id(i) for i in nline['text_seg']]
         nline['title_id'] = [vocab.from_token_id(i) for i in nline['title_seg']]
-        with open(args.processed_folder + 'dev/' + str(i) +'dev.json','w') as writer:
-            json.dump(nline, writer, ensure_ascii=False)
-            writer.write('\n')
-            i += 1
+        if (len(nline['text_id']) > 50) & (len(nline['text_id']) < 500):
+
+            with open(args.processed_folder + 'dev/' + str(i) +'dev.json','w') as writer:
+                json.dump(nline, writer, ensure_ascii=False)
+                writer.write('\n')
+                i += 1
 
 

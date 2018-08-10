@@ -1,15 +1,17 @@
 import torch as t
+import ipdb
 
 
 class Decoder(t.nn.Module):
     """
     simple rnn decoder without attention , using teacher forcing
     """
-    def __init__(self, input_size, hidden_size, max_lenth, sos_id, eos_id, vocab_size):
+    def __init__(self, input_size, hidden_size, max_lenth, sos_id, eos_id, vocab_size, beam_size, num_layer):
         super(Decoder, self).__init__()
         self.max_lenth = max_lenth
         self.vocab_size = vocab_size
         self.sos_id, self.eos_id = sos_id, eos_id
+        self.beam_size = beam_size
         self.rnn = t.nn.RNN(input_size=input_size,
                             hidden_size=hidden_size,
                             bidirectional=False,
@@ -86,7 +88,7 @@ class Decoder(t.nn.Module):
         output_state, hidden_state = self.rnn(input_vector, input_hidden_state)
         output_token = self.projection(output_state)
         output_token = t.nn.functional.log_softmax(output_token, dim=-1).topk(1)[1]
-        return output_token.long().squezze(), hidden_state
+        return output_token.long().squeeze(), hidden_state
 
 
     def reduce_mul(self,l):
@@ -103,6 +105,7 @@ class Decoder(t.nn.Module):
 
     def beam_search_forward(self, input_token, input_hidden_state, embedding):
         input_vector = embedding(input_token.unsqueeze(-1))
+        ipdb.set_trace()
         output_state, hidden_state = self.rnn(input_vector, input_hidden_state)
         output_token = self.projection(output_state)
         output_token = t.nn.functional.log_softmax(output_token, dim=-1)
@@ -155,19 +158,19 @@ class Decoder(t.nn.Module):
 
 
 def test():
-    true_seq = t.Tensor([[2, 6, 4, 4, 4, 3, 0, 0], [2, 4, 4, 4, 3, 0, 0, 0]]).long()
-    encoder_hidden_state = t.randn((2, 8, 7))
-    decoder_init_state = t.randn((2, 1, 7))
+    true_seq = t.Tensor([[2, 6, 4, 4, 4, 3, 0, 0], [2, 4, 4, 4, 3, 0, 0, 0], [2, 4, 4, 4, 3, 0, 0, 0]]).long()
+    encoder_hidden_state = t.randn((3, 8, 7))
+    decoder_init_state = t.randn((3, 1, 7))
     embedding = t.nn.Embedding(10, 7, padding_idx=0)
-    decoder = Decoder(input_size=7, hidden_size=7, max_lenth=5, sos_id=2, eos_id=3, vocab_size=7)
+    decoder = Decoder(input_size=7, hidden_size=7, max_lenth=5, sos_id=2, eos_id=3, vocab_size=7, beam_size=3, num_layer=1)
     output_token_list, output_hidden_state_list, output_seq_lenth = decoder(true_seq, encoder_hidden_state, decoder_init_state, embedding,False)
     print(output_token_list)
     print(output_hidden_state_list)
     print(output_seq_lenth)
 
-    decoder = Decoder(input_size=7, hidden_size=7, max_lenth=5, sos_id=2, eos_id=3, vocab_size=7,beam_size=3)
+    decoder = Decoder(input_size=7, hidden_size=7, max_lenth=5, sos_id=2, eos_id=3, vocab_size=7,beam_size=3, num_layer=1)
     embedding = t.nn.Embedding(10, 7, padding_idx=0)
-    beam = decoder.get_beam_seq(decoder_init_state,embedding)
+    beam = decoder.get_beam_seq(decoder_init_state, embedding)
     print(beam)
 
 

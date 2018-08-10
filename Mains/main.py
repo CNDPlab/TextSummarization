@@ -5,6 +5,7 @@ from Predictor.Utils import Vocab
 import pickle as pk
 from DataSets import DataSet, own_collate_fn
 from Predictor.Models import EncoderDecoder
+from Predictor.Utils.loss import masked_cross_entropy
 
 
 args = Config()
@@ -19,7 +20,14 @@ vocab = pk.load(open('Predictor/Utils/vocab.pkl', 'rb'))
 
 model = EncoderDecoder(matrix=vocab.matrix, args=args)
 optimizer = t.optim.Adam(model.parameters())
-loss =
+loss_func = masked_cross_entropy
+
+global_step = 0
+for i in range(args.epochs):
+    for step, data in trainloader:
+
+
+
 
 
 def prepare():

@@ -1,7 +1,6 @@
 import torch as t
 from Predictor.Models import Encoder, Decoder
-from configs import Config
-import ipdb
+
 
 
 class EncoderDecoder(t.nn.Module):
@@ -44,6 +43,7 @@ class EncoderDecoder(t.nn.Module):
                                                                    decoder_init_state=final_states,
                                                                    embedding=self.embedding,
                                                                    use_teacher_forcing=use_teacher_forcing)
+
         return output_token_list, output_hidden_state_list, output_seq_lenth
 
 
@@ -58,8 +58,3 @@ class EncoderDecoder(t.nn.Module):
 # print(t.stack(res[0], 1).shape)
 
 
-import os
-import shutil
-path = 'log/'
-if os.path.exists(path):
-    shut

@@ -25,7 +25,7 @@ class DataSet(Dataset):
 
 def own_collate_fn(batch):
     batch.sort(key=lambda x: len(x[0]), reverse=True)
-    text_id,title_id,text_len,title_len = zip(*batch)
+    text_id, title_id, text_len, title_len = zip(*batch)
     #pad batch
     text_id = list(itertools.zip_longest(*text_id, fillvalue=0))
     text_id = np.asarray(text_id).transpose().tolist()

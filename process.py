@@ -12,10 +12,8 @@ import gc
 import os
 import pickle as pk
 import shutil
-args = Config()
 
-os.remove('raw/ctt.pk')
-os.remove('raw/ct.pk')
+args = Config()
 
 if os.path.exists('raw/ct.pk'):
     if os.path.exists('raw/ctt.pk'):
@@ -43,7 +41,7 @@ else:
 df = pd.DataFrame({'text': ct, 'title': ctt})
 df = df.dropna()
 df = df.drop_duplicates()
-df = df[(df['text'].apply(len) > 50) & (df['text'].apply(len) < 500)]
+#df = df[(df['text'].apply(len) > 50) & (df['text'].apply(len) < 500)]
 datas = [{'text': v['text'], 'title': v['title']} for i, v in df.iterrows()]
 print(f'total {len(datas)} data')
 
@@ -139,10 +137,11 @@ with open(args.middle_folder+'train.json') as reader:
         nline = json.loads(line)
         nline['text_id'] = [vocab.from_token_id(i) for i in nline['text_seg']]
         nline['title_id'] = [vocab.from_token_id(i) for i in nline['title_seg']]
-        with open(args.processed_folder + 'train/' + str(i) +'train.json', 'w') as writer:
-            json.dump(nline, writer, ensure_ascii=False)
-            writer.write('\n')
-            i += 1
+        if (len(nline['text_id']) > 50) & (len(nline['text_id']) < 500):
+            with open(args.processed_folder + 'train/' + str(i) +'train.json', 'w') as writer:
+                json.dump(nline, writer, ensure_ascii=False)
+                writer.write('\n')
+                i += 1
 
 i = 0
 with open(args.middle_folder+'test.json') as reader:
@@ -150,10 +149,12 @@ with open(args.middle_folder+'test.json') as reader:
         nline = json.loads(line)
         nline['text_id'] = [vocab.from_token_id(i) for i in nline['text_seg']]
         nline['title_id'] = [vocab.from_token_id(i) for i in nline['title_seg']]
-        with open(args.processed_folder + 'test/' + str(i) +'test.json', 'w') as writer:
-            json.dump(nline, writer, ensure_ascii=False)
-            writer.write('\n')
-            i += 1
+        if (len(nline['text_id']) > 50) & (len(nline['text_id']) < 500):
+
+            with open(args.processed_folder + 'test/' + str(i) +'test.json', 'w') as writer:
+                json.dump(nline, writer, ensure_ascii=False)
+                writer.write('\n')
+                i += 1
 
 i = 0
 with open(args.middle_folder+'dev.json') as reader:
@@ -161,9 +162,11 @@ with open(args.middle_folder+'dev.json') as reader:
         nline = json.loads(line)
         nline['text_id'] = [vocab.from_token_id(i) for i in nline['text_seg']]
         nline['title_id'] = [vocab.from_token_id(i) for i in nline['title_seg']]
-        with open(args.processed_folder + 'dev/' + str(i) +'dev.json','w') as writer:
-            json.dump(nline, writer, ensure_ascii=False)
-            writer.write('\n')
-            i += 1
+        if (len(nline['text_id']) > 50) & (len(nline['text_id']) < 500):
+
+            with open(args.processed_folder + 'dev/' + str(i) +'dev.json','w') as writer:
+                json.dump(nline, writer, ensure_ascii=False)
+                writer.write('\n')
+                i += 1
 
 

@@ -6,6 +6,7 @@ from Predictor.Utils import Vocab
 import pickle as pk
 from DataSets import DataSet, own_collate_fn
 from Predictor.Utils.loss import masked_cross_entropy
+from Predictor.Utils import batch_scorer
 from Trainner import Trainner
 from Predictor import Models
 
@@ -15,7 +16,7 @@ def train(**kwargs):
     args.parse(kwargs)
     loss_func = masked_cross_entropy
     #TODO complete score_func
-    score_func = None
+    score_func = batch_scorer
     train_set = DataSet('processed/train/')
     dev_set = DataSet('processed/dev')
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)

@@ -1,14 +1,14 @@
 class Config(object):
-    raw_folder = 'raw/'
-    raw_file = 'raw/df.json'
-    middle_folder = 'middle/'
-    processed_folder = 'processed/'
+    raw_folder = 'datas/raw/'
+    raw_file = 'datas/raw/df.json'
+    middle_folder = 'datas/middle/'
+    processed_folder = 'datas/processed/'
     saved_vocab = 'Predictor/Utils/vocab.pkl'
     tensorboard_root = 'ckpt/logs/'
     saved_model_root = 'ckpt/saved_models/'
     model_name = 'encoder_decoder'
     #TODO check device using
-    device = 'gpu:0'
+    device = 'cuda'
     embedding_dim = 128
     epochs = 20
 

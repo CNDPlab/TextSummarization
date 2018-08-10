@@ -19,14 +19,16 @@ def lenth2mask(lenths, max_lenth):
     mask = mask < lenths_mask
     return mask
 
-def masked_cross_entropy(inputs, targets, input_mask):
+def masked_cross_entropy(inputs, targets, lenths):
     """
     :param inputs:  [B, maxlenth, vocabulary_size] float
     :param targets:  [B, maxlenth]
-    :param input_mask: [B, max_lenth]
+    :param lenths: [B]
     :return: loss tensor [1]
     """
-    vocabulary_size = inputs.size()[-1]
+
+    max_lenth, vocabulary_size = inputs.size()[-2:]
+    input_mask = lenth2mask(lenths, )
     flat_inputs_log = log_softmax(inputs.view(-1, vocabulary_size), dim=-1)
     flat_targets = targets.view(-1, 1)
 

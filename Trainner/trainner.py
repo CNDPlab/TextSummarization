@@ -3,6 +3,7 @@ import time
 import os
 import random
 from tensorboardX import SummaryWriter
+import numpy as np
 
 
 class Trainner(object):
@@ -16,6 +17,8 @@ class Trainner(object):
         self.device = args.device
 
     def train(self, model, optimizer, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio):
+        model.to(self.device)
+        optimizer.to(self.device)
         #TODO add model resume func
         os.mkdir(self.args.tensorboard_root+self.init_time+'/')
         self.summary_writer = SummaryWriter(self.args.tensorboard_root+self.init_time+'/')
@@ -49,7 +52,7 @@ class Trainner(object):
         self.global_step += 1
 
     def _data2loss(self, model, loss_func, data, score_func=None):
-        context, title, context_lenths, title_lenths = [i for i in data]
+        context, title, context_lenths, title_lenths = [i.to(self.device) for i in data]
         token_id, prob_vector, token_lenth = model(data)
         loss = loss_func(prob_vector, title, token_lenth)
         if score_func is None:
@@ -60,18 +63,16 @@ class Trainner(object):
             return loss, score
 
     def _eval(self, model, loss_func, score_func, dev_loader):
-        eval_losses = 0
-        eval_scores = 0
+        eval_losses = []
+        eval_scores = []
         model.eval()
-        num_data = 0
         with t.no_grad():
             for data in dev_loader:
                 eval_loss, eval_score = self._data2loss(model, loss_func, data, score_func)
-                eval_losses += eval_loss.item()
-                eval_scores += eval_score
-                num_data += 1
-        eval_scores = eval_scores/num_data
-        eval_losses = eval_losses/num_data
+                eval_losses.append(eval_loss.item())
+                eval_scores.append(eval_score)
+        eval_scores = np.mean(eval_scores)
+        eval_losses = np.mean(eval_losses)
         self.summary_writer.add_scalar('eval_loss', eval_losses, self.global_step)
         self.summary_writer.add_scalar('eval_score', eval_scores, self.global_step)
         #TODO check belows if is correct

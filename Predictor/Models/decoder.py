@@ -14,6 +14,7 @@ class Decoder(t.nn.Module):
         self.vocab_size = vocab_size
         self.sos_id, self.eos_id = sos_id, eos_id
         self.beam_size = beam_size
+        self.use_teacher_forcing = True
         self.rnn = t.nn.RNN(input_size=input_size,
                             hidden_size=hidden_size,
                             bidirectional=False,
@@ -27,7 +28,6 @@ class Decoder(t.nn.Module):
                 encoder_hidden_states=None,
                 decoder_init_state=None,
                 embedding=None,
-                use_teacher_forcing=True,
                 use_attention=True):
         """
         :param true_seq: [b,s]
@@ -44,7 +44,7 @@ class Decoder(t.nn.Module):
         output_token_list = []
         output_hidden_state_list = []
         ended_seq_id = []
-        if use_teacher_forcing:
+        if self.use_teacher_forcing:
             output_seq_lenth = {i: true_seq.size()[-1] for i in range(batch_size)}
             for step in range(true_seq.size()[-1]):
                 input_token = true_seq[:, step]  # input_token: [Batch_size]
@@ -171,11 +171,10 @@ def test():
     decoder_init_state = t.randn((2, 1, 7))
     embedding = t.nn.Embedding(10, 7, padding_idx=0)
     decoder = Decoder(input_size=7, hidden_size=7, max_lenth=5, sos_id=2, eos_id=3, vocab_size=7,beam_size=3, num_layer=1)
-    output_token_list, output_hidden_state_list, output_seq_lenth = decoder(true_seq, encoder_hidden_state, decoder_init_state, embedding,False)
+    output_token_list, output_hidden_state_list, output_seq_lenth = decoder(true_seq, encoder_hidden_state, decoder_init_state, embedding)
     print(output_token_list)
     print(output_hidden_state_list)
     print(output_hidden_state_list[0].shape)
-
     print(output_seq_lenth)
 
     # decoder = Decoder(input_size=7, hidden_size=7, max_lenth=5, sos_id=2, eos_id=3, vocab_size=7,beam_size=3,num_layer=1)

@@ -28,6 +28,7 @@ class Trainner(object):
 
     def _train_epoch(self, model, optimizer, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio):
         for data in train_loader:
+            #
 
             if random.random() < teacher_forcing_ratio:
                 model.use_teacher_forcing = True

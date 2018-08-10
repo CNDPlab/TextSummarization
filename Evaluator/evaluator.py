@@ -14,3 +14,4 @@ class Evaluator(Trainner):
         return rouge_l_f1_score, loss
 
     def evaluate_step(self, ):
+        pass

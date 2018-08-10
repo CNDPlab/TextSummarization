@@ -78,7 +78,7 @@ class Decoder(t.nn.Module):
                 if len(ended_seq_id) == batch_size:
                     break
         output_seq_lenth = np.asarray([val for key, val in sorted(output_seq_lenth.items())])
-        return t.stack(output_token_list).transpose(0,1), t.stack(output_hidden_state_list).transpose(0,2), t.from_numpy(output_seq_lenth)
+        return t.stack(output_token_list).transpose(0,1), t.cat(output_hidden_state_list,dim=0).transpose(0,1), t.from_numpy(output_seq_lenth)
 
     def forward_step(self, input_token, input_hidden_state, embedding):
         """
@@ -174,6 +174,8 @@ def test():
     output_token_list, output_hidden_state_list, output_seq_lenth = decoder(true_seq, encoder_hidden_state, decoder_init_state, embedding,False)
     print(output_token_list)
     print(output_hidden_state_list)
+    print(output_hidden_state_list[0].shape)
+
     print(output_seq_lenth)
 
     # decoder = Decoder(input_size=7, hidden_size=7, max_lenth=5, sos_id=2, eos_id=3, vocab_size=7,beam_size=3,num_layer=1)

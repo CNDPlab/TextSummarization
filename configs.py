@@ -1,8 +1,8 @@
 class Config(object):
-    raw_folder = 'datas/raw/'
-    raw_file = 'datas/raw/df.json'
-    middle_folder = 'datas/middle/'
-    processed_folder = 'datas/processed/'
+    raw_folder = 'raw/'
+    raw_file = 'raw/df.json'
+    middle_folder = 'middle/'
+    processed_folder = 'processed/'
     saved_vocab = 'Predictor/Utils/vocab.pkl'
     tensorboard_root = 'ckpt/logs/'
     saved_model_root = 'ckpt/saved_models/'

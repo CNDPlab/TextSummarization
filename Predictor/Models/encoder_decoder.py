@@ -46,6 +46,17 @@ class EncoderDecoder(t.nn.Module):
 
         return output_token_list, output_hidden_state_list, output_seq_lenth
 
+    def beam_forward(self,inputs, lenths, ):
+        net = self.embedding(inputs)
+        hidden_states, final_states = self.encoder(net, lenths)
+        output_seq = []
+        for i in range(inputs.shape[0]):
+            top_seq = self.decoder.beam_search(final_states[i],net)
+            output_seq.append(top_seq)
+        return output_seq
+
+
+
 
 # inputs = t.Tensor([[2, 6, 5, 7, 8, 3, 0, 0], [2, 6, 7, 4, 3, 0, 0, 0], [2, 6, 7, 3, 0, 0, 0, 0]]).long()
 # matrix = t.nn.Embedding(20, 128).weight

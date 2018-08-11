@@ -149,7 +149,8 @@ class Decoder(t.nn.Module):
             top_seqs, all_done = self.beam_search_step(decoder_init_state, top_seqs, embedding)
             if all_done:
                 break
-        return top_seqs
+        top_seq = sorted(top_seqs, key=lambda seq: seq[1], reverse=True)
+        return top_seq
 
     # def get_beam_seq(self, decoder_init_state,embedding):
     #     top_seqs = self.beam_search(decoder_init_state,embedding)

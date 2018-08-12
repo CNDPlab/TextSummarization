@@ -62,7 +62,7 @@ class Rouge:
         return mask_x
 
     @staticmethod
-    def rouge_l(cand_sents, ref_sents):
+    def     rouge_l(cand_sents, ref_sents):
         lcs_scores = 0.0
         cand_unigrams = get_unigram_count(chain(*cand_sents))
         ref_unigrams = get_unigram_count(chain(*ref_sents))
@@ -115,6 +115,8 @@ if __name__ == '__main__':
     # A simple eample of how rouge can be calculated
     print(r.rouge_l([[1, 7, 6, 7, 5], [0, 2, 8, 3, 5]],
                     [[1, 2, 3, 4, 5], [3, 9, 5]]))
+    print(r.rouge_l([[1,7,6,7,5]],[[1,2,3,4,5]]))
+    print(r.rouge_l([[0,2,8,3,5]],[[3,9,5]]))
 
     # A more practical example of how it can be used for summary evaluation
     system_generated_summary = " The Kyrgyz President pushed through the law requiring the use of ink during the upcoming Parliamentary and Presidential elections In an effort to live up to its reputation in the 1990s as an island of democracy. The use of ink is one part of a general effort to show commitment towards more open elections. improper use of this type of ink can cause additional problems as the elections in Afghanistan showed. The use of ink and readers by itself is not a panacea for election ills."

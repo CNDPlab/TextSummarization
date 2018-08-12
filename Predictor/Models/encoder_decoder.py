@@ -1,6 +1,6 @@
 import torch as t
 from Predictor.Models import Encoder, Decoder
-
+from configs import Config
 
 
 class EncoderDecoder(t.nn.Module):
@@ -8,14 +8,15 @@ class EncoderDecoder(t.nn.Module):
         super(EncoderDecoder, self).__init__()
         self.vocab_size = matrix.shape[0]
         self.embedding_size = matrix.shape[1]
-
         self.padding_idx = args.padding_idx
         self.hidden_size = args.hidden_size
         self.dropout = args.dropout
         self.num_layers = args.num_layers
         self.sos_id = args.sos_id
         self.eos_id = args.eos_id
+        self.beam_size = args.beam_size
         self.decoding_max_lenth = args.decoding_max_lenth
+        self.use_teacher_forcing = True
         self.embedding = t.nn.Embedding(self.vocab_size,
                                         self.embedding_size,
                                         padding_idx=self.padding_idx)
@@ -32,40 +33,39 @@ class EncoderDecoder(t.nn.Module):
                                sos_id=self.sos_id,
                                eos_id=self.eos_id,
                                vocab_size=self.vocab_size,
-                               num_layer=self.num_layers)
+                               num_layer=self.num_layers,
+                               beam_size=self.beam_size)
 
-    def forward(self, inputs, lenths, true_seq, use_teacher_forcing):
+    def forward(self, inputs, lenths, true_seq):
+        self.decoder.use_teacher_forcing = self.use_teacher_forcing
         net = self.embedding(inputs)
         hidden_states, final_states = self.encoder(net, lenths)
 
         output_token_list, output_hidden_state_list, output_seq_lenth = self.decoder(true_seq=true_seq,
                                                                    encoder_hidden_states=hidden_states,
                                                                    decoder_init_state=final_states,
-                                                                   embedding=self.embedding,
-                                                                   use_teacher_forcing=use_teacher_forcing)
+                                                                   embedding=self.embedding)
 
         return output_token_list, output_hidden_state_list, output_seq_lenth
 
-    def beam_forward(self,inputs, lenths, ):
+    def beam_forward(self, inputs, lenths):
         net = self.embedding(inputs)
         hidden_states, final_states = self.encoder(net, lenths)
         output_seq = []
         for i in range(inputs.shape[0]):
-            top_seq = self.decoder.beam_search(final_states[i],net)
+            top_seq = self.decoder.beam_search(final_states[i], net)
             output_seq.append(top_seq)
         return output_seq
 
 
 
-
-# inputs = t.Tensor([[2, 6, 5, 7, 8, 3, 0, 0], [2, 6, 7, 4, 3, 0, 0, 0], [2, 6, 7, 3, 0, 0, 0, 0]]).long()
-# matrix = t.nn.Embedding(20, 128).weight
-# lenths = t.Tensor([6, 5, 4])
-# use_teacher_forcing = True
-# true_seq = t.Tensor([[2, 5, 7, 5, 3], [2, 4, 8, 3, 0], [2,4,4,3,0]]).long()
-# args = Config()
-# encoder_decoder = EncoderDecoder(matrix, args)
-# res = encoder_decoder(inputs, lenths, true_seq)
-# print(t.stack(res[0], 1).shape)
+if __name__ == '__main__':
+    inputs = t.Tensor([[2, 6, 5, 7, 8, 3, 0, 0], [2, 6, 7, 4, 3, 0, 0, 0], [2, 6, 7, 3, 0, 0, 0, 0]]).long()
+    matrix = t.nn.Embedding(20, 128).weight
+    lenths = t.Tensor([6, 5, 4])
+    true_seq = t.Tensor([[2, 5, 7, 5, 3], [2, 4, 8, 3, 0], [2, 4, 4, 3, 0]]).long()
+    args = Config()
+    encoder_decoder = EncoderDecoder(matrix, args)
+    res = encoder_decoder(inputs, lenths, true_seq)
 
 

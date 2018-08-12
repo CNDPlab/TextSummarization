@@ -34,7 +34,6 @@ class Decoder(t.nn.Module):
         :param encoder_hidden_states: [b,s,h]
         :param decoder_init_state: [b,num_layer*num_direction,h]
         :param embedding:
-        :param use_teacher_forcing:bool
         :return:
         """
         # set sos id as init input_token , encoders last hidden state as init hidden_state
@@ -94,13 +93,13 @@ class Decoder(t.nn.Module):
         return output_token.long().squeeze(), hidden_state
 
 
-    def reduce_mul(self,l):
+    def reduce_mul(self, l):
         out = 1.0
         for x in l:
             out *= x
         return out
 
-    def check_all_done(self,seqs):
+    def check_all_done(self, seqs):
         for seq in seqs:
             if not seq[-1]:
                 return False
@@ -115,7 +114,7 @@ class Decoder(t.nn.Module):
         output_token = output_token.topk(self.beam_size)[1]
         return output_token, output_prob, hidden_state
 
-    def beam_search_step(self, decoder_init_state=None, top_seqs = None, embedding=None):
+    def beam_search_step(self, decoder_init_state=None, top_seqs=None, embedding=None):
         all_seqs = []
         for seq in top_seqs:
             # seq_score = self.reduce_mul([_score for _, _score in seq])
@@ -141,7 +140,7 @@ class Decoder(t.nn.Module):
         all_done = self.check_all_done(topk_seqs)
         return topk_seqs, all_done
 
-    def beam_search(self,decoder_init_state, embedding):
+    def beam_search(self, decoder_init_state, embedding):
         # START
         top_seqs = [[[self.sos_id], 1.0]]
         # loop
@@ -166,7 +165,11 @@ class Decoder(t.nn.Module):
     #     return word_index, self.reduce_mul(word_prob)
 
 
-def test():
+
+
+
+
+if __name__ == '__main__':
     true_seq = t.Tensor([[2, 6, 4, 4, 4, 3, 0, 0], [2, 4, 4, 4, 3, 0, 0, 0]]).long()
     encoder_hidden_state = t.randn((2, 8, 7))
     decoder_init_state = t.randn((2, 1, 7))
@@ -178,12 +181,7 @@ def test():
     print(output_hidden_state_list[0].shape)
     print(output_seq_lenth)
 
-    # decoder = Decoder(input_size=7, hidden_size=7, max_lenth=5, sos_id=2, eos_id=3, vocab_size=7,beam_size=3,num_layer=1)
-    # embedding = t.nn.Embedding(10, 7, padding_idx=0)
-    # beam = decoder.beam_search(decoder_init_state[:1,:,:],embedding)
-    # print(beam)
-
-
-
-if __name__ == '__main__':
-    test()
+    decoder = Decoder(input_size=7, hidden_size=7, max_lenth=5, sos_id=2, eos_id=3, vocab_size=7,beam_size=3,num_layer=1)
+    embedding = t.nn.Embedding(10, 7, padding_idx=0)
+    beam = decoder.beam_search(decoder_init_state[:1, :, :], embedding)
+    print(beam)

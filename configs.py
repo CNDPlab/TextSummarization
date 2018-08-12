@@ -1,3 +1,6 @@
+import warnings
+
+
 class Config(object):
     raw_folder = 'raw/'
     raw_file = 'raw/df.json'
@@ -11,7 +14,7 @@ class Config(object):
     device = 'cuda'
     embedding_dim = 128
     epochs = 20
-
+    beam_size = 3
     batch_size = 32
     padding_idx = 0
     hidden_size = 128
@@ -19,11 +22,16 @@ class Config(object):
     num_layers = 2
     sos_id = 2
     eos_id = 3
-    decoding_max_lenth = 8
-
+    decoding_max_lenth = 20
     eval_every_step = 100
 
+    def parse(self, kwargs):
+        for k, v in kwargs.items():
+            if not hasattr(self, k):
+                warnings.warn("Warning: opt has not attribut %s" % k)
+            setattr(self, k, v)
 
-    def parse(self):
-        #TODO add parse func
-        pass
+        print('user config:')
+        for k, v in self.__class__.__dict__.items():
+            if not k.startswith('__'):
+                print(k, getattr(self, k))

@@ -12,8 +12,6 @@ class Trainner(object):
         self.global_step = 0
         self.global_epoch = 0
         self.init_time = time.strftime('%Y%m%d_%H%M%S')
-
-        #TODO models&datas .to(device)
         self.device = args.device
 
     def train(self, model, optimizer, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio):
@@ -22,6 +20,8 @@ class Trainner(object):
         #TODO add model resume func
         os.mkdir(self.args.tensorboard_root+self.init_time+'/')
         self.summary_writer = SummaryWriter(self.args.tensorboard_root+self.init_time+'/')
+        print(f'summary writer running in:')
+        print(f'tensorboard --logdir= {self.args.tensorboard_root+self.init_time}')
         for epoch in range(self.args.epochs):
             self._train_epoch(model, optimizer, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio)
             self.global_epoch += 1
@@ -31,8 +31,6 @@ class Trainner(object):
 
     def _train_epoch(self, model, optimizer, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio):
         for data in train_loader:
-            #
-
             if random.random() < teacher_forcing_ratio:
                 model.use_teacher_forcing = True
             else:
@@ -58,8 +56,8 @@ class Trainner(object):
         if score_func is None:
             return loss
         else:
-            #TODO completet using score func
-            score = score_func()
+            #TODO check
+            score = score_func(token_id, title)
             return loss, score
 
     def _eval(self, model, loss_func, score_func, dev_loader):

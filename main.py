@@ -25,7 +25,7 @@ def train(**kwargs):
     vocab = pk.load(open('Predictor/Utils/vocab.pkl', 'rb'))
     model = getattr(Models, args.model_name)(matrix=vocab.matrix, args=args)
     trainner = Trainner(args)
-    trainner.train(model, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio=1)
+    trainner.train(model, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio=1,resume=args.resume)
 
 def test(**kwargs):
     args = Config()

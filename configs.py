@@ -10,6 +10,7 @@ class Config(object):
     tensorboard_root = 'ckpt/logs/'
     saved_model_root = 'ckpt/saved_models/'
     model_name = 'EncoderDecoder'
+    resume = False
     #TODO check device using
     device = 'cuda'
     embedding_dim = 128
@@ -24,6 +25,7 @@ class Config(object):
     eos_id = 3
     decoding_max_lenth = 50
     eval_every_step = 100
+    save_every_step = 2000
 
     def parse(self, kwargs):
         for k, v in kwargs.items():

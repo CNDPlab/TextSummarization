@@ -34,7 +34,7 @@ class Trainner(object):
         for epoch in range(self.args.epochs):
             self._train_epoch(model, optimizer, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio)
             self.global_epoch += 1
-            self._save(model,self.global_epoch,self.global_step, optimizer)
+            self.select_topk_model(5)
         #TODO add save_stratgy.!!using save_state_dict rather than save!!
         self.summary_writer.close()
         print(f'DONE')
@@ -49,7 +49,9 @@ class Trainner(object):
                 model.use_teacher_forcing = False
             self._train_step(model, optimizer, loss_func, data)
             if self.global_step % self.args.eval_every_step == 0:
-                self._eval(model, loss_func, score_func, dev_loader)
+                score = self._eval(model, loss_func, score_func, dev_loader)
+                if self.global_step % self.args.save_every_step == 0:
+                    self._save(model, self.global_epoch, self.global_step, optimizer, score)
 
     def _train_step(self, model, optimizer, loss_func, data):
         optimizer.zero_grad()
@@ -88,24 +90,32 @@ class Trainner(object):
         for i, v in model.named_parameters():
             self.summary_writer.add_histogram(i, v, self.global_step)
         model.train()
+        return eval_scores
 
-    def _save(self, model, epoch, step, optimizer):
+    def _save(self, model, epoch, step, optimizer,score):
         date_time = time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime())
-        path = os.path.join(self.save_path, date_time)
+        info = date_time + '_' + score
+        path = os.path.join(self.save_path, info)
         t.save({'epoch': epoch,
                 'step': step,
                 'optimizer': optimizer
                 },os.path.join(path, 'trainer_state'))
         t.save(model.state_dict(), os.path.join(path, 'model'))
 
-    def _load(self, path):
+    def _load(self, path, model):
         resume_checkpoint = t.load(os.path.join(path, 'trainer_state'))
-        model = t.load(os.path.join(path, 'model'))
+        model.load_state_dict(t.load(os.path.join(path, 'model')))
         return {'epoch': resume_checkpoint.epoch,
                 'step': resume_checkpoint.step,
                 'optimizer': resume_checkpoint.optimizer,
                 'model': model}
 
-    def get_latest_cpath(self):
-        all_times = sorted(os.listdir(self.save_path), reverse=True)
-        return os.path.join(self.save_path, all_times[0])
+    # def get_latest_cpath(self):
+    #     all_times = sorted(os.listdir(self.save_path), reverse=True)
+    #     return os.path.join(self.save_path, all_times[0])
+
+    def select_topk_model(self, k):
+        file_name = os.listdir(self.save_path)
+        remove_file = sorted(file_name, key = lambda x: x.split('_')[1], reverse=True)[k:]
+        for i in remove_file:
+            os.remove(os.path.join(self.save_path, i))

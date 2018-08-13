@@ -143,7 +143,7 @@ with open(args.middle_folder+'train.json') as reader:
                 json.dump(nline, writer, ensure_ascii=False)
                 writer.write('\n')
                 i += 1
-  
+
 i = 0
 with open(args.middle_folder+'test.json') as reader:
     for line in tqdm(reader, desc='saving test'):

@@ -23,21 +23,36 @@ def train(**kwargs):
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
     dev_loader = DataLoader(dev_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
     vocab = pk.load(open('Predictor/Utils/vocab.pkl', 'rb'))
+    eos_id, sos_id = vocab.token2id['<EOS>'], vocab.token2id['<BOS>']
+    args.eos_id = eos_id
+    args.sos_id = sos_id
     model = getattr(Models, args.model_name)(matrix=vocab.matrix, args=args)
     trainner = Trainner(args)
-    trainner.train(model, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio=1,resume=args.resume)
+    trainner.train(model, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio=1, resume=args.resume)
 
 def test(**kwargs):
     args = Config()
     test_set = DataSet('processed/test/')
     test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
 
-
+    vocab = pk.load(open('Predictor/Utils/vocab.pkl', 'rb'))
     model = getattr(Models, args.model_name)(matrix=vocab.matrix, args=args)
     #TODO complete load_state_dict and predict
-    model.load_state_dicts()
-    with t.no_grad():
-        outputs = model()
+    model.load_state_dicts(t.load())
+    while True:
+        x = input('input context:')
+        token_x = predict_pipeline(x)
+        lenth_x = len(token_x)
+        input_context = t.Tensor([token_x]).long()
+        input_context_lenth = t.Tensor([lenth_x]).long()
+
+
+
+def predict(**kwargs):
+    args = Config()
+
+    model = getattr(Models, args.model_name)(matrix=vocab.matrix, args=args)
+    model.load_state_dicts(t.load())
 
 
 if __name__ == '__main__':

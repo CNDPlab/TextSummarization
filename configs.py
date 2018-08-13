@@ -3,7 +3,6 @@ import warnings
 
 class Config(object):
     raw_folder = 'raw/'
-    raw_file = 'raw/df.json'
     middle_folder = 'middle/'
     processed_folder = 'processed/'
     saved_vocab = 'Predictor/Utils/vocab.pkl'
@@ -11,8 +10,7 @@ class Config(object):
     saved_model_root = 'ckpt/saved_models/'
     model_name = 'EncoderDecoder'
     resume = False
-    #TODO check device using
-    device = 'cuda'
+    device = 'cuda:0'
     embedding_dim = 128
     epochs = 20
     beam_size = 3
@@ -21,8 +19,8 @@ class Config(object):
     hidden_size = 128
     dropout = 0.5
     num_layers = 2
-    sos_id = 2
-    eos_id = 3
+    sos_id = None
+    eos_id = None
     decoding_max_lenth = 50
     eval_every_step = 500
     save_every_step = 4000

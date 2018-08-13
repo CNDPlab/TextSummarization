@@ -1,23 +1,8 @@
 from torch.nn.functional import log_softmax
 import torch as t
+from Predictor.Utils import lenth2mask
 import ipdb
 
-
-def lenth2mask(lenths, max_lenth=None):
-    """
-    :param lenths: [B] tensor
-    :param max_lenth:  num
-    :return: [B,max_lenth] tensor
-    """
-    if max_lenth == None:
-        max_lenth = lenths.data.max()
-    batch_size = lenths.size()[0]
-
-    mask = t.range(0, max_lenth-1).long()
-    mask = mask.expand(batch_size, max_lenth)
-    lenths_mask = lenths.unsqueeze(-1).expand_as(mask)
-    mask = mask < lenths_mask
-    return mask
 
 def masked_cross_entropy(inputs, targets, lenths):
     """
@@ -33,7 +18,7 @@ def masked_cross_entropy(inputs, targets, lenths):
     flat_inputs_log = log_softmax(inputs.contiguous().view(-1, vocabulary_size), dim=-1)
     flat_targets = targets.view(-1, 1)
     losses = t.gather(flat_inputs_log, dim=1, index=flat_targets.long()).view(*targets.size())
-    input_mask = lenth2mask(lenths, max_lenth).to(losses.device).data.float()
+    input_mask = lenth2mask(lenths, max_lenth).data.float()
     losses = losses * input_mask
     losses = -losses.sum()/(input_mask.sum())
     return losses

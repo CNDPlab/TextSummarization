@@ -40,7 +40,7 @@ class Trainner(object):
         print(f'DONE')
 
     def _train_epoch(self, model, optimizer, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio):
-        for data in tqdm(train_loader, 'step'):
+        for data in tqdm(train_loader, desc='train step'):
             if random.random() < teacher_forcing_ratio:
                 model.use_teacher_forcing = True
             else:
@@ -64,7 +64,7 @@ class Trainner(object):
 
     def _data2loss(self, model, loss_func, data, score_func=None):
         context, title, context_lenths, title_lenths = [i.to(self.device) for i in data]
-        token_id, prob_vector, token_lenth = model(context, context_lenths, title)
+        token_id, prob_vector, token_lenth, attention_matrix = model(context, context_lenths, title)
         loss = loss_func(prob_vector, title, token_lenth)
         if score_func is None:
             return loss
@@ -77,8 +77,9 @@ class Trainner(object):
         eval_losses = []
         eval_scores = []
         model.eval()
+        model.use_teacher_forcing = False
         with t.no_grad():
-            for data in dev_loader:
+            for data in tqdm(dev_loader, desc='dev_step'):
                 eval_loss, eval_score = self._data2loss(model, loss_func, data, score_func)
                 eval_losses.append(eval_loss.item())
                 eval_scores.append(eval_score)

@@ -9,7 +9,6 @@ from Predictor.Utils.loss import masked_cross_entropy
 from Predictor.Utils import batch_scorer
 from Trainner import Trainner
 from Predictor import Models
-from Predictor.Utils.seg_func import predict_pipeline
 import ipdb
 
 
@@ -26,10 +25,9 @@ def train(**kwargs):
     vocab = pk.load(open('Predictor/Utils/vocab.pkl', 'rb'))
     model = getattr(Models, args.model_name)(matrix=vocab.matrix, args=args)
     trainner = Trainner(args)
-    trainner.train(model, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio=0.5)
+    trainner.train(model, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio=1,resume=args.resume)
 
 def test(**kwargs):
-
     args = Config()
     test_set = DataSet('processed/test/')
     test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)

@@ -55,7 +55,7 @@ for i in tqdm(result):
     n_datas.append(i)
 
 train, test = train_test_split(n_datas, test_size=0.1, random_state=1)
-test, dev = train_test_split(test, test_size=0.5, random_state=1)
+test, dev = train_test_split(test, test_size=0.05, random_state=1)
 del n_datas, datas
 gc.collect()
 
@@ -68,6 +68,7 @@ with open(args.middle_folder+'train.json', 'w') as writer:
     for i in tqdm(train, desc='writing train'):
         json.dump(i, writer, ensure_ascii=False)
         writer.write('\n')
+
 with open(args.middle_folder+'test.json', 'w') as writer:
     for i in tqdm(test, desc='writing test'):
         json.dump(i, writer, ensure_ascii=False)
@@ -150,7 +151,6 @@ with open(args.middle_folder+'test.json') as reader:
         nline['text_id'] = [vocab.from_token_id(i) for i in nline['text_seg']]
         nline['title_id'] = [vocab.from_token_id(i) for i in nline['title_seg']]
         if (len(nline['text_id']) > 50) & (len(nline['text_id']) < 500):
-
             with open(args.processed_folder + 'test/' + str(i) +'test.json', 'w') as writer:
                 json.dump(nline, writer, ensure_ascii=False)
                 writer.write('\n')
@@ -163,7 +163,6 @@ with open(args.middle_folder+'dev.json') as reader:
         nline['text_id'] = [vocab.from_token_id(i) for i in nline['text_seg']]
         nline['title_id'] = [vocab.from_token_id(i) for i in nline['title_seg']]
         if (len(nline['text_id']) > 50) & (len(nline['text_id']) < 500):
-
             with open(args.processed_folder + 'dev/' + str(i) +'dev.json','w') as writer:
                 json.dump(nline, writer, ensure_ascii=False)
                 writer.write('\n')

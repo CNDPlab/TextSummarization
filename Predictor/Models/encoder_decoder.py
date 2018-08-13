@@ -42,9 +42,10 @@ class EncoderDecoder(t.nn.Module):
         net = self.embedding(inputs)
         hidden_states, final_states = self.encoder(net, lenths)
         output_token_list, output_hidden_state_list, output_seq_lenth = self.decoder(true_seq=true_seq,
-                                                                   encoder_hidden_states=hidden_states,
-                                                                   decoder_init_state=final_states,
-                                                                   embedding=self.embedding)
+                                                                                     encoder_hidden_states=hidden_states,
+                                                                                     decoder_init_state=final_states,
+                                                                                     embedding=self.embedding,
+                                                                                     encoder_lenths=lenths)
         return output_token_list, output_hidden_state_list, output_seq_lenth
 
     def beam_forward(self, inputs, lenths):

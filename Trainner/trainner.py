@@ -15,11 +15,18 @@ class Trainner(object):
         self.global_epoch = 0
         self.init_time = time.strftime('%Y%m%d_%H%M%S')
         self.device = args.device
+        self.save_path = args.saved_model_root
 
-    def train(self, model, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio):
+    def train(self, model, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio, resume):
         model.to(self.device)
         optimizer = t.optim.Adam(model.parameters())
         #TODO add model resume func
+        if resume:
+            loaded = self._load(self.get_latest_cpath())
+            self.global_epoch = loaded['epoch']
+            self.global_step = loaded['step']
+            optimizer = loaded['optimizer']
+            model = loaded['model']
         os.mkdir(self.args.tensorboard_root+self.init_time+'/')
         self.summary_writer = SummaryWriter(self.args.tensorboard_root+self.init_time+'/')
         print(f'summary writer running in:')
@@ -27,7 +34,7 @@ class Trainner(object):
         for epoch in range(self.args.epochs):
             self._train_epoch(model, optimizer, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio)
             self.global_epoch += 1
-
+            self._save(model,self.global_epoch,self.global_step, optimizer)
         #TODO add save_stratgy.!!using save_state_dict rather than save!!
         self.summary_writer.close()
         print(f'DONE')
@@ -82,9 +89,23 @@ class Trainner(object):
             self.summary_writer.add_histogram(i, v, self.global_step)
         model.train()
 
-    def _save(self, model, path):
-        t.save(model.state_dict(), path)
+    def _save(self, model, epoch, step, optimizer):
+        date_time = time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime())
+        path = os.path.join(self.save_path, date_time)
+        t.save({'epoch': epoch,
+                'step': step,
+                'optimizer': optimizer
+                },os.path.join(path, 'trainer_state'))
+        t.save(model.state_dict(), os.path.join(path, 'model'))
 
-    def _load(self, model, path):
-        model.load_state_dict(t.load(path))
+    def _load(self, path):
+        resume_checkpoint = t.load(os.path.join(path, 'trainer_state'))
+        model = t.load(os.path.join(path, 'model'))
+        return {'epoch': resume_checkpoint.epoch,
+                'step': resume_checkpoint.step,
+                'optimizer': resume_checkpoint.optimizer,
+                'model': model}
 
+    def get_latest_cpath(self):
+        all_times = sorted(os.listdir(self.save_path), reverse=True)
+        return os.path.join(self.save_path, all_times[0])

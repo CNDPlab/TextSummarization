@@ -1,4 +1,5 @@
 import torch as t
+from Predictor.Models.attention import Attention
 import numpy as np
 import ipdb
 import collections
@@ -22,7 +23,8 @@ class Decoder(t.nn.Module):
                             batch_first=True,
                             num_layers=num_layer
                             )
-        self.projection = t.nn.Sequential(t.nn.Linear(hidden_size, self.vocab_size))
+        self.merge_context_output = t.nn.Linear(hidden_size*2, hidden_size)
+        self.projection = t.nn.Sequential(t.nn.Linear(hidden_size*2, self.vocab_size))
 
     def forward(self, true_seq=None,
                 encoder_hidden_states=None,
@@ -36,22 +38,30 @@ class Decoder(t.nn.Module):
         :return:
         """
         # set sos id as init input_token , encoders last hidden state as init hidden_state
+        device = encoder_hidden_states.device
         batch_size = encoder_hidden_states.size()[0]
         hidden_size = encoder_hidden_states.size()[-1]
-        token = t.Tensor([self.sos_id]*batch_size).long().to(encoder_hidden_states.device)
+        token = t.Tensor([self.sos_id]*batch_size).long().to(device)
         hidden_state = decoder_init_state.transpose(0, 1).contiguous()
-        context_vector = t.zeros((batch_size, hidden_size))
+        context_vector = t.zeros((batch_size, 1, hidden_size)).to(device)
         output_token_list = []
         output_prob_list = []
+        output_attention_list = []
         ended_seq_id = []
         if self.use_teacher_forcing:
             output_seq_lenth = {i: true_seq.size()[-1] for i in range(batch_size)}
             for step in range(true_seq.size()[-1]):
                 token = true_seq[:, step]  # token: [Batch_size]
                 #TODO: add attention
-                token, prob, hidden_state, attention_vector, context_vector = self.forward_step(token, hidden_state, embedding, encoder_hidden_states, encoder_lenths, context_vector)
+                token, prob, hidden_state, attention_vector, context_vector = self.forward_step(token,
+                                                                                                hidden_state,
+                                                                                                embedding,
+                                                                                                encoder_hidden_states,
+                                                                                                encoder_lenths,
+                                                                                                context_vector)
                 output_token_list.append(token)
                 output_prob_list.append(prob)
+                output_attention_list.append(attention_vector)
                 if len(token) != 0:
                     for i, v in enumerate(token):
                         if (i not in ended_seq_id) & (v.item() == self.eos_id):
@@ -63,9 +73,15 @@ class Decoder(t.nn.Module):
         else:
             output_seq_lenth = {i: self.max_lenth for i in range(batch_size)}
             for step in range(self.max_lenth):
-                token, prob, hidden_state = self.forward_step(token, hidden_state, embedding)
+                token, prob, hidden_state, attention_vector, context_vector = self.forward_step(token,
+                                                                                                hidden_state,
+                                                                                                embedding,
+                                                                                                encoder_hidden_states,
+                                                                                                encoder_lenths,
+                                                                                                context_vector)
                 output_token_list.append(token)
                 output_prob_list.append(prob)
+                output_attention_list.append(attention_vector)
 
                 if len(token) != 0:
                     for i, v in enumerate(token):
@@ -75,21 +91,35 @@ class Decoder(t.nn.Module):
                 if len(ended_seq_id) == batch_size:
                     break
         output_seq_lenth = np.asarray([val for key, val in sorted(output_seq_lenth.items())])
-        return t.stack(output_token_list).transpose(0, 1), t.cat(output_prob_list, dim=1), t.from_numpy(output_seq_lenth)
+        return t.stack(output_token_list).transpose(0, 1), t.cat(output_prob_list, dim=1), t.from_numpy(output_seq_lenth), t.cat(output_attention_list, dim=-2)
 
-    def forward_step(self, input_token, input_hidden_state, embedding):
+    def forward_step(self, input_token, input_hidden_state, embedding, encoder_hidden_states, encoder_lenths, context_vector):
         """
         :param input_token: [Batch_size]
         :param input_hidden_state: [Batch_size,hidden_size]
         :param embedding:
+        :param encoder_hidden_states: [B, seqlenth, hidden_size]
+        :param encoder_lenths: [B, ]
+        :param context_vector: [B, 1, hidden_size]
         :return:
         """
         input_vector = embedding(input_token.unsqueeze(-1))
-        output_state, hidden_state = self.rnn(input_vector, input_hidden_state)
-        output_state = self.projection(output_state)
+        # input_vector [B, 1, hidden_size]
+        rnn_input = t.cat([input_vector, context_vector], -1)
+        # rnn_input [B, 1, hidden_size*2]
+        #TODO add ffn to b,1,hidden_size????
+        rnn_input = self.merge_context_output(rnn_input)
+        ipdb.set_trace()
+        output_state, hidden_state = self.rnn(rnn_input, input_hidden_state)
+        # output_state [B, 1, hidden_size]
+        attention_vector, context_vector = Attention(encoder_hidden_states, encoder_lenths, output_state)
+        # attention_vector [B, seq_lenth, 1]
+        # contexT_vector [B, seq_lenth, 1]
+        output_state = self.projection(t.cat([output_state, context_vector], -1))
         output_prob = t.nn.functional.log_softmax(output_state, dim=-1)
         output_token = output_prob.topk(1)[1]
-        return output_token.long().squeeze(), output_prob, hidden_state
+        return output_token.long().squeeze(), output_prob, hidden_state, attention_vector, context_vector
+
 
     def reduce_mul(self, l):
         out = 1.0

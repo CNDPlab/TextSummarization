@@ -34,7 +34,7 @@ class Trainner(object):
         for epoch in range(self.args.epochs):
             self._train_epoch(model, optimizer, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio)
             self.global_epoch += 1
-            self.select_topk_model(5)
+            self.select_topk_model(3)
         #TODO add save_stratgy.!!using save_state_dict rather than save!!
         self.summary_writer.close()
         print(f'DONE')
@@ -110,9 +110,9 @@ class Trainner(object):
                 'optimizer': resume_checkpoint.optimizer,
                 'model': model}
 
-    # def get_latest_cpath(self):
-    #     all_times = sorted(os.listdir(self.save_path), reverse=True)
-    #     return os.path.join(self.save_path, all_times[0])
+    def get_latest_cpath(self):
+        all_times = sorted(os.listdir(self.save_path), reverse=True)
+        return os.path.join(self.save_path, all_times[0])
 
     def select_topk_model(self, k):
         file_name = os.listdir(self.save_path)

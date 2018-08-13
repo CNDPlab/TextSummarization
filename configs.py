@@ -24,8 +24,8 @@ class Config(object):
     sos_id = 2
     eos_id = 3
     decoding_max_lenth = 50
-    eval_every_step = 100
-    save_every_step = 2000
+    eval_every_step = 500
+    save_every_step = 4000
 
     def parse(self, kwargs):
         for k, v in kwargs.items():

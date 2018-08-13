@@ -64,7 +64,7 @@ class Trainner(object):
 
     def _data2loss(self, model, loss_func, data, score_func=None):
         context, title, context_lenths, title_lenths = [i.to(self.device) for i in data]
-        token_id, prob_vector, token_lenth = model(context, context_lenths, title)
+        token_id, prob_vector, token_lenth, attention_matrix = model(context, context_lenths, title)
         loss = loss_func(prob_vector, title, token_lenth)
         if score_func is None:
             return loss

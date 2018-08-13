@@ -91,7 +91,7 @@ class Decoder(t.nn.Module):
                 if len(ended_seq_id) == batch_size:
                     break
         output_seq_lenth = np.asarray([val for key, val in sorted(output_seq_lenth.items())])
-        return t.stack(output_token_list).transpose(0, 1), t.cat(output_prob_list, dim=1), t.from_numpy(output_seq_lenth), t.cat(output_attention_list, dim=-2)
+        return t.stack(output_token_list).transpose(0, 1), t.cat(output_prob_list, dim=1), t.from_numpy(output_seq_lenth).to(device), t.cat(output_attention_list, dim=-2)
 
     def forward_step(self, input_token, input_hidden_state, embedding, encoder_hidden_states, encoder_lenths, context_vector):
         """
@@ -109,7 +109,6 @@ class Decoder(t.nn.Module):
         # rnn_input [B, 1, hidden_size*2]
         #TODO add ffn to b,1,hidden_size????
         rnn_input = self.merge_context_output(rnn_input)
-        ipdb.set_trace()
         output_state, hidden_state = self.rnn(rnn_input, input_hidden_state)
         # output_state [B, 1, hidden_size]
         attention_vector, context_vector = Attention(encoder_hidden_states, encoder_lenths, output_state)

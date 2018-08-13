@@ -10,7 +10,7 @@ class Config(object):
     saved_model_root = 'ckpt/saved_models/'
     model_name = 'EncoderDecoder'
     resume = False
-    device = 'cuda'
+    device = 'cuda:0'
     embedding_dim = 128
     epochs = 20
     beam_size = 3

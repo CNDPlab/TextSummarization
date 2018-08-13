@@ -1,6 +1,7 @@
 from torch.nn.functional import log_softmax
 import torch as t
 from Predictor.Utils import lenth2mask
+import ipdb
 
 
 def masked_cross_entropy(inputs, targets, lenths):
@@ -17,7 +18,7 @@ def masked_cross_entropy(inputs, targets, lenths):
     flat_inputs_log = log_softmax(inputs.contiguous().view(-1, vocabulary_size), dim=-1)
     flat_targets = targets.view(-1, 1)
     losses = t.gather(flat_inputs_log, dim=1, index=flat_targets.long()).view(*targets.size())
-    input_mask = lenth2mask(lenths, max_lenth).to(losses.device).data.float()
+    input_mask = lenth2mask(lenths, max_lenth).data.float()
     losses = losses * input_mask
     losses = -losses.sum()/(input_mask.sum())
     return losses

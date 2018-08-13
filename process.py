@@ -169,3 +169,6 @@ with open(args.middle_folder+'dev.json') as reader:
                 i += 1
 
 
+os.mkdir('ckpt/')
+os.mkdir(args.tensorboard_root)
+os.mkdir((args.saved_model_root))

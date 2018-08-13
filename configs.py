@@ -3,7 +3,6 @@ import warnings
 
 class Config(object):
     raw_folder = 'raw/'
-    raw_file = 'raw/df.json'
     middle_folder = 'middle/'
     processed_folder = 'processed/'
     saved_vocab = 'Predictor/Utils/vocab.pkl'
@@ -21,8 +20,8 @@ class Config(object):
     hidden_size = 128
     dropout = 0.5
     num_layers = 2
-    sos_id = 2
-    eos_id = 3
+    sos_id = None
+    eos_id = None
     decoding_max_lenth = 50
     eval_every_step = 100
     save_every_step = 2000

@@ -9,6 +9,7 @@ from Predictor.Utils.loss import masked_cross_entropy
 from Predictor.Utils import batch_scorer
 from Trainner import Trainner
 from Predictor import Models
+import ipdb
 
 
 def train(**kwargs):
@@ -18,14 +19,13 @@ def train(**kwargs):
     #TODO complete score_func
     score_func = batch_scorer
     train_set = DataSet('processed/train/')
-    dev_set = DataSet('processed/dev')
+    dev_set = DataSet('processed/dev/')
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
     dev_loader = DataLoader(dev_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
     vocab = pk.load(open('Predictor/Utils/vocab.pkl', 'rb'))
     model = getattr(Models, args.model_name)(matrix=vocab.matrix, args=args)
-    optimizer = t.optim.Adam(model.parameters())
     trainner = Trainner(args)
-    trainner.train(model, optimizer, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio=1)
+    trainner.train(model, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio=1)
 
 def test(**kwargs):
     args = Config()

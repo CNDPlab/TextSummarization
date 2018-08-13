@@ -1,6 +1,7 @@
 import torch as t
 from Predictor.Models import Encoder, Decoder
 from configs import Config
+import ipdb
 
 
 class EncoderDecoder(t.nn.Module):
@@ -40,12 +41,10 @@ class EncoderDecoder(t.nn.Module):
         self.decoder.use_teacher_forcing = self.use_teacher_forcing
         net = self.embedding(inputs)
         hidden_states, final_states = self.encoder(net, lenths)
-
         output_token_list, output_hidden_state_list, output_seq_lenth = self.decoder(true_seq=true_seq,
                                                                    encoder_hidden_states=hidden_states,
                                                                    decoder_init_state=final_states,
                                                                    embedding=self.embedding)
-
         return output_token_list, output_hidden_state_list, output_seq_lenth
 
     def beam_forward(self, inputs, lenths):

@@ -9,7 +9,7 @@ class Config(object):
     saved_vocab = 'Predictor/Utils/vocab.pkl'
     tensorboard_root = 'ckpt/logs/'
     saved_model_root = 'ckpt/saved_models/'
-    model_name = 'encoder_decoder'
+    model_name = 'EncoderDecoder'
     #TODO check device using
     device = 'cuda'
     embedding_dim = 128
@@ -22,7 +22,7 @@ class Config(object):
     num_layers = 2
     sos_id = 2
     eos_id = 3
-    decoding_max_lenth = 20
+    decoding_max_lenth = 50
     eval_every_step = 100
 
     def parse(self, kwargs):
@@ -34,4 +34,4 @@ class Config(object):
         print('user config:')
         for k, v in self.__class__.__dict__.items():
             if not k.startswith('__'):
-                print(k, getattr(self, k))
+                print('__', k, getattr(self, k))

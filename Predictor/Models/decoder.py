@@ -24,8 +24,11 @@ class Decoder(t.nn.Module):
                             num_layers=num_layer
                             )
         self.merge_context_output = t.nn.Linear(hidden_size*2, hidden_size)
-        self.projection = t.nn.Sequential(t.nn.Linear(hidden_size*2, self.vocab_size))
-
+        self.projection = t.nn.Linear(hidden_size*2, self.vocab_size)
+        t.nn.init.xavier_normal_(self.merge_context_output.weight)
+        t.nn.init.xavier_normal_(self.projection.weight)
+        t.nn.init.xavier_normal_(self.rnn.all_weights)
+    #TODO use embeddingmatrix in decode
     def forward(self, true_seq=None,
                 encoder_hidden_states=None,
                 decoder_init_state=None,

@@ -23,7 +23,6 @@ class CustomRnn(t.nn.Module):
                                                  dropout=dropout,
                                                  batch_first=batch_first,
                                                  bidirectional=bidirectional)
-
     def init_hidden_states(self):
         # TODO: add init hidden states with uniform
         pass

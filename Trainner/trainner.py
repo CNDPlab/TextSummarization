@@ -95,7 +95,7 @@ class Trainner(object):
 
     def _save(self, model, epoch, step, optimizer,score):
         date_time = time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime())
-        info = date_time + '_' + score
+        info = date_time + '_' + str(score)
         path = os.path.join(self.save_path, info)
         t.save({'epoch': epoch,
                 'step': step,

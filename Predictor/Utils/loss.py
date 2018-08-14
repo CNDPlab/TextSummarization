@@ -12,13 +12,26 @@ def masked_cross_entropy(inputs, targets, lenths):
     :return: loss tensor [1]
     """
     #TODO: max lenth of the loss func must
-    max_lenth = targets.size()[-1]
+    batch_size, inp_max_lenth, vocabulary_size = inputs.size()
+    tar_max_lenth = targets.size()[-1]
+    device = inputs.device
+
     vocabulary_size = inputs.size()[-1]
-    inputs = inputs[:, :max_lenth, :]
+    if inp_max_lenth >= tar_max_lenth:
+        inputs = inputs[:, :tar_max_lenth, :]
+    else:
+        inputs = t.cat([inputs, t.zeros((batch_size, tar_max_lenth-inp_max_lenth, vocabulary_size)).to(device)], dim=-2)
     flat_inputs_log = log_softmax(inputs.contiguous().view(-1, vocabulary_size), dim=-1)
     flat_targets = targets.view(-1, 1)
-    losses = t.gather(flat_inputs_log, dim=1, index=flat_targets.long()).view(*targets.size())
-    input_mask = lenth2mask(lenths, max_lenth).data.float()
+    try:
+        losses = t.gather(flat_inputs_log, dim=1, index=flat_targets.long()).view(*targets.size())
+    except:
+        ipdb.set_trace()
+        print(flat_inputs_log.size())
+        print(flat_targets.size())
+        print(inputs.size())
+        print(targets.size())
+    input_mask = lenth2mask(lenths, tar_max_lenth).data.float()
     losses = losses * input_mask
     losses = -losses.sum()/(input_mask.sum())
     return losses

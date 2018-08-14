@@ -28,7 +28,7 @@ def train(**kwargs):
     args.sos_id = sos_id
     model = getattr(Models, args.model_name)(matrix=vocab.matrix, args=args)
     trainner = Trainner(args)
-    trainner.train(model, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio=1, resume=args.resume)
+    trainner.train(model, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio=0.5, resume=args.resume)
 
 def test(**kwargs):
     args = Config()

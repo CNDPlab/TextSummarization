@@ -5,6 +5,7 @@ import random
 from tensorboardX import SummaryWriter
 import numpy as np
 from tqdm import tqdm
+import shutil
 import ipdb
 
 
@@ -18,14 +19,14 @@ class Trainner(object):
         self.save_path = args.saved_model_root
 
     def train(self, model, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio, resume):
-        print(resume)
+        print(f'resume:{resume}')
         model.to(self.device)
         optimizer = t.optim.Adam(model.parameters())
         if resume:
-            loaded = self._load(self.get_latest_cpath(),model)
+            loaded = self._load(self.get_latest_cpath(), model)
             optimizer = loaded['optimizer']
             model = loaded['model']
-            print(self.global_step,self.global_epoch)
+            print(self.global_step, self.global_epoch)
         os.mkdir(self.args.tensorboard_root+self.init_time+'/')
         self.summary_writer = SummaryWriter(self.args.tensorboard_root+self.init_time+'/')
         print(f'summary writer running in:')
@@ -118,4 +119,4 @@ class Trainner(object):
         file_name = os.listdir(self.save_path)
         remove_file = sorted(file_name, key=lambda x: x.split('_')[1], reverse=True)[k:]
         for i in remove_file:
-            os.remove(os.path.join(self.save_path, i))
+            shutil.rmtree(os.path.join(self.save_path, i))

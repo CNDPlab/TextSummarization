@@ -125,7 +125,6 @@ class Decoder(t.nn.Module):
         output_token = output_prob.topk(1)[1]
         return output_token.long().squeeze(), output_prob, hidden_state, attention_vector, context_vector
 
-
     def reduce_mul(self, l):
         out = 1.0
         for x in l:

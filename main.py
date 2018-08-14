@@ -52,6 +52,8 @@ def test(**kwargs):
     model.load_state_dicts(t.load(select_best_model(args.saved_model_root)))
     model.use_teacher_forcing = False
     for data in test_loader:
+        pass
+
 
     # while True:
     #     x = input('input context:')

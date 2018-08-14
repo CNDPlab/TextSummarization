@@ -35,20 +35,38 @@ def select_best_model(save_path):
     best_model = sorted(file_name, key = lambda x: x.split('_')[1], reverse=True)[0]
     return best_model
 
+def _load(path, model):
+    resume_checkpoint = t.load(os.path.join(path, 'trainer_state'))
+    model.load_state_dict(t.load(os.path.join(path, 'model')))
+    return {'epoch': resume_checkpoint['epoch'],
+            'step': resume_checkpoint['step'],
+            'optimizer': resume_checkpoint['optimizer'],
+            'model': model}
+
 def test(**kwargs):
     args = Config()
     test_set = DataSet('processed/test/')
     test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
     vocab = pk.load(open('Predictor/Utils/vocab.pkl', 'rb'))
+    eos_id, sos_id = vocab.token2id['<EOS>'], vocab.token2id['<BOS>']
+    args.eos_id = eos_id
+    args.sos_id = sos_id
     model = getattr(Models, args.model_name)(matrix=vocab.matrix, args=args)
-    model.load_state_dicts(t.load())
-
+    load = _load('ckpt/saved_models/2018_08_14_02_39_23_0.29422916423070244', model)
+    model = load['model']
+    model.to('cuda')
     #TODO complete load_state_dict and predict
-    model.load_state_dicts(t.load(select_best_model(args.saved_model_root)))
     model.use_teacher_forcing = False
-    for data in test_loader:
-        pass
-
+    with t.no_grad():
+        for data in test_loader:
+            context, title, context_lenths, title_lenths = [i.to('cuda') for i in data]
+            token_id, prob_vector, token_lenth, attention_matrix = model(context, context_lenths, title)
+            context_word = [[vocab.from_id_token(id.item()) for id in sample] for sample in context]
+            words = [[vocab.from_id_token(id.item()) for id in sample] for sample in token_id]
+            title_words = [[vocab.from_id_token(id.item()) for id in sample] for sample in title]
+            for i in zip(context_word, words, title_words):
+                a = input('next')
+                print(f'context:{i[0]},pre:{i[1]}, tru:{i[2]}')
 
     # while True:
     #     x = input('input context:')

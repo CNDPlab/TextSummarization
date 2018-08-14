@@ -1,5 +1,5 @@
 import torch as t
-
+import ipdb
 
 def lenth2mask(lenths, max_lenth=None):
     """
@@ -14,7 +14,10 @@ def lenth2mask(lenths, max_lenth=None):
     mask = t.range(0, max_lenth-1).long().to(device)
     mask = mask.expand(batch_size, max_lenth)
     lenths_mask = lenths.unsqueeze(-1).expand_as(mask)
-    mask = mask < lenths_mask
+    try:
+        mask = mask < lenths_mask
+    except:
+        ipdb.set_trace()
     return mask
 
 

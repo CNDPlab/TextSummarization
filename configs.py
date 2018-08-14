@@ -18,6 +18,7 @@ class Config(object):
     padding_idx = 0
     hidden_size = 128
     dropout = 0.5
+    init_tf_ratio = 1
     num_layers = 2
     num_model_tosave = 3
     sos_id = None

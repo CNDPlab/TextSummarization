@@ -52,20 +52,23 @@ def test(**kwargs):
     args.eos_id = eos_id
     args.sos_id = sos_id
     model = getattr(Models, args.model_name)(matrix=vocab.matrix, args=args)
-    load = _load('ckpt/saved_models/2018_08_14_02_39_23_0.29422916423070244', model)
+    load = _load('ckpt/saved_models/2018_08_14_04_33_40_0.32190511440828723', model)
     model = load['model']
     model.to('cuda')
-    model.use_teacher_forcing = False
+    #TODO complete load_state_dict and predict
+    model.use_teacher_forcing = True
     with t.no_grad():
         for data in test_loader:
             context, title, context_lenths, title_lenths = [i.to('cuda') for i in data]
             token_id, prob_vector, token_lenth, attention_matrix = model(context, context_lenths, title)
+            score = batch_scorer(token_id.tolist(),title.tolist(),args.eos_id)
             context_word = [[vocab.from_id_token(id.item()) for id in sample] for sample in context]
             words = [[vocab.from_id_token(id.item()) for id in sample] for sample in token_id]
             title_words = [[vocab.from_id_token(id.item()) for id in sample] for sample in title]
             for i in zip(context_word, words, title_words):
                 a = input('next')
-                print(f'context:{i[0]},pre:{i[1]}, tru:{i[2]}')
+                print(f'context:{i[0]},pre:{i[1]}, tru:{i[2]}, score:{score}')
+
 
     # while True:
     #     x = input('input context:')

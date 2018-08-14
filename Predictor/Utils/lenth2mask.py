@@ -16,3 +16,16 @@ def lenth2mask(lenths, max_lenth=None):
     lenths_mask = lenths.unsqueeze(-1).expand_as(mask)
     mask = mask < lenths_mask
     return mask
+
+
+def beam_lenth2mask(lenths, max_lenth=None):
+    """
+    :param lenths: [B] tensor
+    :param max_lenth:  num
+    :return: [B,max_lenth] tensor
+    """
+    device = lenths.device
+    mask = t.range(0, max_lenth-1).long().to(device)
+    lenths_mask = lenths.expand_as(mask)
+    mask = mask < lenths_mask
+    return mask

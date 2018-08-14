@@ -42,12 +42,7 @@ def test(**kwargs):
     vocab = pk.load(open('Predictor/Utils/vocab.pkl', 'rb'))
     model = getattr(Models, args.model_name)(matrix=vocab.matrix, args=args)
     model.load_state_dicts(t.load())
-    while True:
-        x = input('input context:')
-        token_x = predict_pipeline(x)
-        lenth_x = len(token_x)
-        input_context = t.Tensor([token_x]).long()
-        input_context_lenth = t.Tensor([lenth_x]).long()
+
     #TODO complete load_state_dict and predict
     model.load_state_dicts(t.load(select_best_model(args.saved_model_root)))
     model.use_teacher_forcing = False

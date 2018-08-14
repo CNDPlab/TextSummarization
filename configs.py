@@ -19,6 +19,7 @@ class Config(object):
     hidden_size = 128
     dropout = 0.5
     num_layers = 2
+    num_model_tosave = 3
     sos_id = None
     eos_id = None
     decoding_max_lenth = 50

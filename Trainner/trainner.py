@@ -44,7 +44,7 @@ class Trainner(object):
                 model.use_teacher_forcing = True
             else:
                 model.use_teacher_forcing = False
-            if self.global_step > 5000:
+            if self.global_step > 50000:
                 model.use_teacher_forcing = False
             self._train_step(model, optimizer, loss_func, data)
             if self.global_step % self.args.eval_every_step == 0:

@@ -16,7 +16,6 @@ def train(**kwargs):
     args = Config()
     args.parse(kwargs)
     loss_func = masked_cross_entropy
-    #TODO complete score_func
     score_func = batch_scorer
     train_set = DataSet('processed/train/')
     dev_set = DataSet('processed/dev/')
@@ -37,7 +36,6 @@ def test(**kwargs):
 
     vocab = pk.load(open('Predictor/Utils/vocab.pkl', 'rb'))
     model = getattr(Models, args.model_name)(matrix=vocab.matrix, args=args)
-    #TODO complete load_state_dict and predict
     model.load_state_dicts(t.load())
     while True:
         x = input('input context:')

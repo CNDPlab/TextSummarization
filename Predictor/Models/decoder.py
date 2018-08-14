@@ -24,10 +24,11 @@ class Decoder(t.nn.Module):
                             num_layers=num_layer
                             )
         self.merge_context_output = t.nn.Linear(hidden_size*2, hidden_size)
-        self.projection = t.nn.Linear(hidden_size*2, self.vocab_size)
+        self.projection = t.nn.Linear(hidden_size*2, hidden_size)
+
         t.nn.init.xavier_normal_(self.merge_context_output.weight)
         t.nn.init.xavier_normal_(self.projection.weight)
-        t.nn.init.xavier_normal_(self.rnn.all_weights)
+
     #TODO use embeddingmatrix in decode
     def forward(self, true_seq=None,
                 encoder_hidden_states=None,
@@ -118,6 +119,8 @@ class Decoder(t.nn.Module):
         # attention_vector [B, seq_lenth, 1]
         # contexT_vector [B, seq_lenth, 1]
         output_state = self.projection(t.cat([output_state, context_vector], -1))
+        output_state = t.mm(output_state.squeeze(-2), embedding.weight.transpose(0, 1))
+        output_state.unsqueeze_(-2)
         output_prob = t.nn.functional.log_softmax(output_state, dim=-1)
         output_token = output_prob.topk(1)[1]
         return output_token.long().squeeze(), output_prob, hidden_state, attention_vector, context_vector

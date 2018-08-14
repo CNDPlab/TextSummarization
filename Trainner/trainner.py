@@ -18,15 +18,14 @@ class Trainner(object):
         self.save_path = args.saved_model_root
 
     def train(self, model, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio, resume):
+        print(resume)
         model.to(self.device)
         optimizer = t.optim.Adam(model.parameters())
-        #TODO add model resume func
         if resume:
-            loaded = self._load(self.get_latest_cpath())
-            self.global_epoch = loaded['epoch']
-            self.global_step = loaded['step']
+            loaded = self._load(self.get_latest_cpath(),model)
             optimizer = loaded['optimizer']
             model = loaded['model']
+            print(self.global_step,self.global_epoch)
         os.mkdir(self.args.tensorboard_root+self.init_time+'/')
         self.summary_writer = SummaryWriter(self.args.tensorboard_root+self.init_time+'/')
         print(f'summary writer running in:')
@@ -35,7 +34,6 @@ class Trainner(object):
             self._train_epoch(model, optimizer, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio)
             self.global_epoch += 1
             self.select_topk_model(3)
-        #TODO add save_stratgy.!!using save_state_dict rather than save!!
         self.summary_writer.close()
         print(f'DONE')
 
@@ -59,7 +57,7 @@ class Trainner(object):
         train_loss.backward()
         optimizer.step()
 
-        self.summary_writer.add_scalar('train_loss', train_loss.item(), self.global_step)
+        self.summary_writer.add_scalar('loss/train_loss', train_loss.item(), self.global_step)
         self.global_step += 1
 
     def _data2loss(self, model, loss_func, data, score_func=None):
@@ -69,7 +67,6 @@ class Trainner(object):
         if score_func is None:
             return loss
         else:
-            #TODO check
             score = score_func(token_id, title)
             return loss, score
 
@@ -85,11 +82,11 @@ class Trainner(object):
                 eval_scores.append(eval_score)
         eval_scores = np.mean(eval_scores)
         eval_losses = np.mean(eval_losses)
-        self.summary_writer.add_scalar('eval_loss', eval_losses, self.global_step)
-        self.summary_writer.add_scalar('eval_score', eval_scores, self.global_step)
+        self.summary_writer.add_scalar('loss/eval_loss', eval_losses, self.global_step)
+        self.summary_writer.add_scalar('score/eval_score', eval_scores, self.global_step)
         #TODO check belows if is correct
         for i, v in model.named_parameters():
-            self.summary_writer.add_histogram(i, v, self.global_step)
+            self.summary_writer.add_histogram(i.replace('.', '/'), v.clone().cpu().data.numpy(), self.global_step)
         model.train()
         return eval_scores
 
@@ -97,18 +94,20 @@ class Trainner(object):
         date_time = time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime())
         info = date_time + '_' + str(score)
         path = os.path.join(self.save_path, info)
+        if not os.path.exists(path):
+            os.mkdir(path)
         t.save({'epoch': epoch,
                 'step': step,
                 'optimizer': optimizer
-                },os.path.join(path, 'trainer_state'))
+                }, os.path.join(path, 'trainer_state'))
         t.save(model.state_dict(), os.path.join(path, 'model'))
 
     def _load(self, path, model):
         resume_checkpoint = t.load(os.path.join(path, 'trainer_state'))
         model.load_state_dict(t.load(os.path.join(path, 'model')))
-        return {'epoch': resume_checkpoint.epoch,
-                'step': resume_checkpoint.step,
-                'optimizer': resume_checkpoint.optimizer,
+        return {'epoch': resume_checkpoint['epoch'],
+                'step': resume_checkpoint['step'],
+                'optimizer': resume_checkpoint['optimizer'],
                 'model': model}
 
     def get_latest_cpath(self):
@@ -117,6 +116,6 @@ class Trainner(object):
 
     def select_topk_model(self, k):
         file_name = os.listdir(self.save_path)
-        remove_file = sorted(file_name, key = lambda x: x.split('_')[1], reverse=True)[k:]
+        remove_file = sorted(file_name, key=lambda x: x.split('_')[1], reverse=True)[k:]
         for i in remove_file:
             os.remove(os.path.join(self.save_path, i))

@@ -178,12 +178,12 @@ class Decoder(t.nn.Module):
         all_done = self.check_all_done(topk_seqs)
         return topk_seqs, all_done
 
-    def beam_search(self, decoder_init_state, embedding, encoder_hidden_states, encoder_lenths, context_vector):
+    def beam_search(self, decoder_init_state, embedding, encoder_hidden_states, encoder_lenths):
         # START
         top_seqs = [[[self.sos_id], 1.0]]
         # loop
         for _ in range(self.max_lenth):
-            top_seqs, all_done = self.beam_search_step(decoder_init_state, top_seqs, embedding, encoder_hidden_states, encoder_lenths, context_vector)
+            top_seqs, all_done = self.beam_search_step(decoder_init_state, top_seqs, embedding, encoder_hidden_states, encoder_lenths)
             if all_done:
                 break
         top_seq = sorted(top_seqs, key=lambda seq: seq[1], reverse=True)

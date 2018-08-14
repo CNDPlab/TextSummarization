@@ -85,7 +85,6 @@ class Trainner(object):
         eval_losses = np.mean(eval_losses)
         self.summary_writer.add_scalar('loss/eval_loss', eval_losses, self.global_step)
         self.summary_writer.add_scalar('score/eval_score', eval_scores, self.global_step)
-        #TODO check belows if is correct
         for i, v in model.named_parameters():
             self.summary_writer.add_histogram(i.replace('.', '/'), v.clone().cpu().data.numpy(), self.global_step)
         model.train()

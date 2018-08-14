@@ -29,7 +29,6 @@ class Decoder(t.nn.Module):
         t.nn.init.xavier_normal_(self.merge_context_output.weight)
         t.nn.init.xavier_normal_(self.projection.weight)
 
-    #TODO use embeddingmatrix in decode
     def forward(self, true_seq=None,
                 encoder_hidden_states=None,
                 decoder_init_state=None,
@@ -41,6 +40,8 @@ class Decoder(t.nn.Module):
         :param embedding:
         :return:
         """
+        #TODO: use teacher forcing in step: maxlenth =true lenth
+
         # set sos id as init input_token , encoders last hidden state as init hidden_state
         device = encoder_hidden_states.device
         batch_size = encoder_hidden_states.size()[0]
@@ -56,7 +57,6 @@ class Decoder(t.nn.Module):
             output_seq_lenth = {i: true_seq.size()[-1] for i in range(batch_size)}
             for step in range(true_seq.size()[-1]):
                 token = true_seq[:, step]  # token: [Batch_size]
-                #TODO: add attention
                 token, prob, hidden_state, attention_vector, context_vector = self.forward_step(token,
                                                                                                 hidden_state,
                                                                                                 embedding,
@@ -111,7 +111,6 @@ class Decoder(t.nn.Module):
         # input_vector [B, 1, hidden_size]
         rnn_input = t.cat([input_vector, context_vector], -1)
         # rnn_input [B, 1, hidden_size*2]
-        #TODO add ffn to b,1,hidden_size????
         rnn_input = self.merge_context_output(rnn_input)
         output_state, hidden_state = self.rnn(rnn_input, input_hidden_state)
         # output_state [B, 1, hidden_size]
@@ -125,13 +124,11 @@ class Decoder(t.nn.Module):
         output_token = output_prob.topk(1)[1]
         return output_token.long().squeeze(), output_prob, hidden_state, attention_vector, context_vector
 
-
     def check_all_done(self, seqs):
         for seq in seqs:
             if not seq[-1]:
                 return False
         return True
-
 
     def beam_search_forward(self, input_token, input_hidden_state, embedding, encoder_hidden_states, encoder_lenths, context_vector):
         input_vector = embedding(input_token.unsqueeze(-1))

@@ -55,7 +55,6 @@ def test(**kwargs):
     load = _load('ckpt/saved_models/2018_08_14_02_39_23_0.29422916423070244', model)
     model = load['model']
     model.to('cuda')
-    #TODO complete load_state_dict and predict
     model.use_teacher_forcing = False
     with t.no_grad():
         for data in test_loader:

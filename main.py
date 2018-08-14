@@ -28,11 +28,11 @@ def train(**kwargs):
     args.sos_id = sos_id
     model = getattr(Models, args.model_name)(matrix=vocab.matrix, args=args)
     trainner = Trainner(args)
-    trainner.train(model, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio=0.5, resume=args.resume)
+    trainner.train(model, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio=args.init_tf_ratio, resume=args.resume)
 
 def select_best_model(save_path):
     file_name = os.listdir(save_path)
-    best_model = sorted(file_name, key = lambda x: x.split('_')[1], reverse=True)[0]
+    best_model = sorted(file_name, key=lambda x: x.split('_')[1], reverse=True)[0]
     return best_model
 
 def _load(path, model):
@@ -56,7 +56,7 @@ def test(**kwargs):
     model = load['model']
     model.to('cuda')
     #TODO complete load_state_dict and predict
-    model.use_teacher_forcing = True
+    model.teacher_forcing_ratio = -100
     with t.no_grad():
         for data in test_loader:
             context, title, context_lenths, title_lenths = [i.to('cuda') for i in data]

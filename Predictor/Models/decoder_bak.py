@@ -1,7 +1,6 @@
 import torch as t
 from Predictor.Models.attention import Attention, beam_Attention
 import numpy as np
-import random
 import ipdb
 import collections
 
@@ -24,17 +23,16 @@ class Decoder(t.nn.Module):
                             batch_first=True,
                             num_layers=num_layer
                             )
-        self.teacher_forcing_ratio = 1
         self.merge_context_output = t.nn.Linear(hidden_size*2, hidden_size)
         self.projection = t.nn.Linear(hidden_size*2, hidden_size)
+
         t.nn.init.xavier_normal_(self.merge_context_output.weight)
         t.nn.init.xavier_normal_(self.projection.weight)
 
     def forward(self, true_seq=None,
                 encoder_hidden_states=None,
                 decoder_init_state=None,
-                embedding=None,
-                encoder_lenths=None):
+                embedding=None, encoder_lenths=None):
         """
         :param true_seq: [b,s]
         :param encoder_hidden_states: [b,s,h]
@@ -55,39 +53,47 @@ class Decoder(t.nn.Module):
         output_prob_list = []
         output_attention_list = []
         ended_seq_id = []
-        output_seq_lenth = {i: true_seq.size()[-1] for i in range(batch_size)}
-        for step in range(true_seq.size()[-1]):
-            use_teacher_forcing = random.random() < self.teacher_forcing_ratio
-            if use_teacher_forcing:
-                token = true_seq[:, step]
-            else:
-                pass
-            token, prob, hidden_state, attention_vector, context_vector = self.forward_step(token,
-                                                                                            hidden_state,
-                                                                                            embedding,
-                                                                                            encoder_hidden_states,
-                                                                                            encoder_lenths,
-                                                                                            context_vector)
-            if step != true_seq.size()[-1]-1:
+        if self.use_teacher_forcing:
+            output_seq_lenth = {i: true_seq.size()[-1] for i in range(batch_size)}
+            for step in range(true_seq.size()[-1]):
+                token = true_seq[:, step]  # token: [Batch_size]
+                token, prob, hidden_state, attention_vector, context_vector = self.forward_step(token,
+                                                                                                hidden_state,
+                                                                                                embedding,
+                                                                                                encoder_hidden_states,
+                                                                                                encoder_lenths,
+                                                                                                context_vector)
                 output_token_list.append(token)
                 output_prob_list.append(prob)
                 output_attention_list.append(attention_vector)
-                for i, v in enumerate(token):
-                    if (i not in ended_seq_id) & (v.item() == self.eos_id):
-                        output_seq_lenth[i] = step
-                        ended_seq_id.append(i)
+                if len(token) != 0:
+                    for i, v in enumerate(token):
+                        if (i not in ended_seq_id) & (v.item() == self.eos_id):
+                            output_seq_lenth[i] = step
+                            ended_seq_id.append(i)
                 if len(ended_seq_id) == batch_size:
                     break
-            else:
+
+        else:
+            output_seq_lenth = {i: self.max_lenth for i in range(batch_size)}
+            for step in range(self.max_lenth):
+                token, prob, hidden_state, attention_vector, context_vector = self.forward_step(token,
+                                                                                                hidden_state,
+                                                                                                embedding,
+                                                                                                encoder_hidden_states,
+                                                                                                encoder_lenths,
+                                                                                                context_vector)
                 output_token_list.append(token)
                 output_prob_list.append(prob)
                 output_attention_list.append(attention_vector)
-                for i, v in enumerate(token):
-                    if (i not in ended_seq_id):
-                        output_seq_lenth[i] = step
-                        ended_seq_id.append(i)
 
-
+                if len(token) != 0:
+                    for i, v in enumerate(token):
+                        if (i not in ended_seq_id) & (v.item() == self.eos_id):
+                            output_seq_lenth[i] = step
+                            ended_seq_id.append(i)
+                if len(ended_seq_id) == batch_size:
+                    break
         output_seq_lenth = np.asarray([val for key, val in sorted(output_seq_lenth.items())])
         return t.stack(output_token_list).transpose(0, 1), t.cat(output_prob_list, dim=1), t.from_numpy(output_seq_lenth).to(device), t.cat(output_attention_list, dim=-2)
 

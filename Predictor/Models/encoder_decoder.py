@@ -17,7 +17,7 @@ class EncoderDecoder(t.nn.Module):
         self.eos_id = args.eos_id
         self.beam_size = args.beam_size
         self.decoding_max_lenth = args.decoding_max_lenth
-        self.use_teacher_forcing = True
+        self.teacher_forcing_ratio = 1
         self.embedding = t.nn.Embedding(self.vocab_size,
                                         self.embedding_size,
                                         padding_idx=self.padding_idx)
@@ -38,7 +38,7 @@ class EncoderDecoder(t.nn.Module):
                                beam_size=self.beam_size)
 
     def forward(self, inputs, lenths, true_seq):
-        self.decoder.use_teacher_forcing = self.use_teacher_forcing
+        self.decoder.teacher_forcing_ratio = self.teacher_forcing_ratio
         net = self.embedding(inputs)
         hidden_states, final_states = self.encoder(net, lenths)
         output_token_list, output_hidden_state_list, output_seq_lenth, attention_matrix = self.decoder(true_seq=true_seq,

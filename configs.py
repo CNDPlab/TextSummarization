@@ -19,6 +19,8 @@ class Config(object):
     hidden_size = 128
     dropout = 0.5
     init_tf_ratio = 1
+    tf_ratio_decay_ratio = 0.99999
+    close_teacher_forcing_step = 50000
     num_layers = 2
     num_model_tosave = 3
     sos_id = None

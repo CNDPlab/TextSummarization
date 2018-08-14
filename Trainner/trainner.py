@@ -21,6 +21,7 @@ class Trainner(object):
     def train(self, model, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio, resume):
         print(f'resume:{resume}')
         model.to(self.device)
+        model.teacher_forcing_ratio = teacher_forcing_ratio
         optimizer = t.optim.Adam(model.parameters())
         if resume:
             loaded = self._load(self.get_latest_cpath(), model)
@@ -32,21 +33,20 @@ class Trainner(object):
         print(f'summary writer running in:')
         print(f'tensorboard --logdir {self.args.tensorboard_root+self.init_time}')
         for epoch in range(self.args.epochs):
-            self._train_epoch(model, optimizer, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio)
+            self._train_epoch(model, optimizer, loss_func, score_func, train_loader, dev_loader)
             self.global_epoch += 1
             self.select_topk_model(self.args.num_model_tosave)
         self.summary_writer.close()
         print(f'DONE')
 
-    def _train_epoch(self, model, optimizer, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio):
+    def _train_epoch(self, model, optimizer, loss_func, score_func, train_loader, dev_loader):
         for data in tqdm(train_loader, desc='train step'):
-            if random.random() < teacher_forcing_ratio:
-                model.use_teacher_forcing = True
-            else:
-                model.use_teacher_forcing = False
-            if self.global_step > 50000:
-                model.use_teacher_forcing = False
             self._train_step(model, optimizer, loss_func, data)
+            if self.global_step >= self.args.close_teacher_forcing_step:
+                model.teacher_forcing_ratio = 0
+            else:
+                model.teacher_forcing_ratio = model.teacher_forcing_ratio * self.args.tf_ratio_decay_ratio
+
             if self.global_step % self.args.eval_every_step == 0:
                 score = self._eval(model, loss_func, score_func, dev_loader)
                 if self.global_step % self.args.save_every_step == 0:
@@ -59,6 +59,8 @@ class Trainner(object):
         optimizer.step()
 
         self.summary_writer.add_scalar('loss/train_loss', train_loss.item(), self.global_step)
+        self.summary_writer.add_scalar('teacher_forcing_ratio', model.teacher_forcing_ratio, self.global_step)
+        self.summary_writer.add_text('Text', 'test for print test', self.global_step)
         self.global_step += 1
 
     def _data2loss(self, model, loss_func, data, score_func=None):
@@ -75,7 +77,7 @@ class Trainner(object):
         eval_losses = []
         eval_scores = []
         model.eval()
-        model.use_teacher_forcing = False
+        model.use_teacher_forcing = -100
         with t.no_grad():
             for data in tqdm(dev_loader, desc='dev_step'):
                 eval_loss, eval_score = self._data2loss(model, loss_func, data, score_func)

@@ -43,7 +43,7 @@ class Trainner(object):
         for data in tqdm(train_loader, desc='train step'):
             self._train_step(model, optimizer, loss_func, data)
             if self.global_step >= self.args.close_teacher_forcing_step:
-                model.teacher_forcing_ratio = 0
+                model.teacher_forcing_ratio = -100
             else:
                 model.teacher_forcing_ratio = model.teacher_forcing_ratio * self.args.tf_ratio_decay_ratio
 
@@ -60,6 +60,7 @@ class Trainner(object):
 
         self.summary_writer.add_scalar('loss/train_loss', train_loss.item(), self.global_step)
         self.summary_writer.add_scalar('teacher_forcing_ratio', model.teacher_forcing_ratio, self.global_step)
+        #TODO add text writer for directly eval
         self.summary_writer.add_text('Text', 'test for print test', self.global_step)
         self.global_step += 1
 

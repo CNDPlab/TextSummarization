@@ -31,9 +31,7 @@ class Decoder(t.nn.Module):
         t.nn.init.orthogonal_(self.rnn.weight_ih_l0)
 
         t.nn.init.xavier_normal_(self.merge_context_output.weight)
-        t.nn.init.xavier_normal_(self.merge_context_output.bias)
         t.nn.init.xavier_normal_(self.projection.weight)
-        t.nn.init.xavier_normal_(self.projection.bias)
 
     def forward(self, true_seq=None,
                 encoder_hidden_states=None,

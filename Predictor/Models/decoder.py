@@ -27,7 +27,7 @@ class Decoder(t.nn.Module):
         self.teacher_forcing_ratio = 1
         self.merge_context_output = t.nn.Linear(hidden_size*2, hidden_size)
         self.projection = t.nn.Linear(hidden_size*2, hidden_size)
-        for name, param in self.rnn.parameters():
+        for param in self.rnn.parameters():
             t.nn.init.orthogonal_(param)
 
         t.nn.init.xavier_normal_(self.merge_context_output.weight)

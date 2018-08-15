@@ -23,7 +23,7 @@ class CustomRnn(t.nn.Module):
                                                  dropout=dropout,
                                                  batch_first=batch_first,
                                                  bidirectional=bidirectional)
-        for name, param in self.rnn.parameters():
+        for param in self.rnn.parameters():
             t.nn.init.orthogonal_(param)
 
     def init_hidden_states(self):

@@ -1,9 +1,9 @@
 from .Segmentor import Seg_only
 import re
 
-pattern = re.compile(r'[0-9]')
+pattern = re.compile('(\d+(\.\d+)?)')
 seg = Seg_only()
-stopwords = [line.strip() for line in open('Datas/stopwords.dat.txt', 'r', encoding='utf-8').readlines()]
+stopwords = [line.strip() for line in open('Predictor/Utils/stopwords.dat.txt', 'r', encoding='utf-8').readlines()]
 
 
 def clean(input):

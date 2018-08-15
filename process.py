@@ -43,7 +43,7 @@ else:
 df = pd.DataFrame({'text': ct, 'title': ctt})
 df = df.dropna()
 df = df.drop_duplicates()
-
+df = df[:100]
 #df = df[(df['text'].apply(len) > 50) & (df['text'].apply(len) < 500)]
 datas = [{'text': v['text'], 'title': v['title']} for i, v in df.iterrows()]
 print(f'total {len(datas)} data')

@@ -27,7 +27,7 @@ def train(**kwargs):
     args.eos_id = eos_id
     args.sos_id = sos_id
     model = getattr(Models, args.model_name)(matrix=vocab.matrix, args=args)
-    trainner = Trainner(args)
+    trainner = Trainner(args, vocab)
     trainner.train(model, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio=args.init_tf_ratio, resume=args.resume)
 
 def select_best_model(save_path):

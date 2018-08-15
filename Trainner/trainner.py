@@ -10,18 +10,20 @@ import ipdb
 
 
 class Trainner(object):
-    def __init__(self, args):
+    def __init__(self, args, vocab):
         self.args = args
+        self.vocab = vocab
         self.global_step = 0
         self.global_epoch = 0
         self.init_time = time.strftime('%Y%m%d_%H%M%S')
         self.device = args.device
         self.save_path = args.saved_model_root
+        self.teacher_forcing_ratio = 1
 
     def train(self, model, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio, resume):
         print(f'resume:{resume}')
         model.to(self.device)
-        model.teacher_forcing_ratio = teacher_forcing_ratio
+        self.teacher_forcing_ratio = teacher_forcing_ratio
         optimizer = t.optim.Adam(model.parameters())
         if resume:
             loaded = self._load(self.get_latest_cpath(), model)
@@ -41,13 +43,14 @@ class Trainner(object):
 
     def _train_epoch(self, model, optimizer, loss_func, score_func, train_loader, dev_loader):
         for data in tqdm(train_loader, desc='train step'):
+            model.teacher_forcing_ratio = self.teacher_forcing_ratio
             self._train_step(model, optimizer, loss_func, data)
             if self.global_step >= self.args.close_teacher_forcing_step:
-                model.teacher_forcing_ratio = -100
+                self.teacher_forcing_ratio = -100
             else:
-                model.teacher_forcing_ratio = model.teacher_forcing_ratio * self.args.tf_ratio_decay_ratio
-
+                self.teacher_forcing_ratio *= self.args.tf_ratio_decay_ratio
             if self.global_step % self.args.eval_every_step == 0:
+                model.teacher_forcing_ratio = -100
                 score = self._eval(model, loss_func, score_func, dev_loader)
                 if self.global_step % self.args.save_every_step == 0:
                     self._save(model, self.global_epoch, self.global_step, optimizer, score)
@@ -61,7 +64,6 @@ class Trainner(object):
         self.summary_writer.add_scalar('loss/train_loss', train_loss.item(), self.global_step)
         self.summary_writer.add_scalar('teacher_forcing_ratio', model.teacher_forcing_ratio, self.global_step)
         #TODO add text writer for directly eval
-        self.summary_writer.add_text('Text', 'test for print test', self.global_step)
         self.global_step += 1
 
     def _data2loss(self, model, loss_func, data, score_func=None):
@@ -78,7 +80,6 @@ class Trainner(object):
         eval_losses = []
         eval_scores = []
         model.eval()
-        model.use_teacher_forcing = -100
         with t.no_grad():
             for data in tqdm(dev_loader, desc='dev_step'):
                 eval_loss, eval_score = self._data2loss(model, loss_func, data, score_func)
@@ -93,7 +94,7 @@ class Trainner(object):
         model.train()
         return eval_scores
 
-    def _save(self, model, epoch, step, optimizer,score):
+    def _save(self, model, epoch, step, optimizer, score):
         date_time = time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime())
         info = date_time + '_' + str(score)
         path = os.path.join(self.save_path, info)

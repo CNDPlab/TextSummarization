@@ -172,3 +172,7 @@ if not os.path.exists('ckpt'):
     os.mkdir('ckpt/')
     os.mkdir(args.tensorboard_root)
     os.mkdir((args.saved_model_root))
+#TODO q去除停用词
+#TODO 过滤过多unk的数据
+
+

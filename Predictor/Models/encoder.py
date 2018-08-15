@@ -25,3 +25,5 @@ if __name__ == '__main__':
 
     net = embedding(inputs)
     net = encoder(net, lenths)
+
+#TODO bidirectional

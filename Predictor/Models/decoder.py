@@ -42,8 +42,6 @@ class Decoder(t.nn.Module):
         :param embedding:
         :return:
         """
-        #TODO: use teacher forcing in step: maxlenth =true lenth
-
         # set sos id as init input_token , encoders last hidden state as init hidden_state
         device = encoder_hidden_states.device
         batch_size = encoder_hidden_states.size()[0]
@@ -83,7 +81,7 @@ class Decoder(t.nn.Module):
                 output_prob_list.append(prob)
                 output_attention_list.append(attention_vector)
                 for i, v in enumerate(token):
-                    if (i not in ended_seq_id):
+                    if i not in ended_seq_id:
                         output_seq_lenth[i] = step
                         ended_seq_id.append(i)
 

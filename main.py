@@ -30,10 +30,12 @@ def train(**kwargs):
     trainner = Trainner(args, vocab)
     trainner.train(model, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio=args.init_tf_ratio, resume=args.resume)
 
+
 def select_best_model(save_path):
     file_name = os.listdir(save_path)
     best_model = sorted(file_name, key=lambda x: x.split('_')[1], reverse=True)[0]
     return best_model
+
 
 def _load(path, model):
     resume_checkpoint = t.load(os.path.join(path, 'trainer_state'))
@@ -42,6 +44,7 @@ def _load(path, model):
             'step': resume_checkpoint['step'],
             'optimizer': resume_checkpoint['optimizer'],
             'model': model}
+
 
 def test(**kwargs):
     args = Config()
@@ -61,7 +64,7 @@ def test(**kwargs):
         for data in test_loader:
             context, title, context_lenths, title_lenths = [i.to('cuda') for i in data]
             token_id, prob_vector, token_lenth, attention_matrix = model(context, context_lenths, title)
-            score = batch_scorer(token_id.tolist(),title.tolist(),args.eos_id)
+            score = batch_scorer(token_id.tolist(), title.tolist(), args.eos_id)
             context_word = [[vocab.from_id_token(id.item()) for id in sample] for sample in context]
             words = [[vocab.from_id_token(id.item()) for id in sample] for sample in token_id]
             title_words = [[vocab.from_id_token(id.item()) for id in sample] for sample in title]

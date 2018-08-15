@@ -13,12 +13,14 @@ import os
 import pickle as pk
 import shutil
 
-args = Config()
 
-if os.path.exists('raw/ct.pk'):
-    if os.path.exists('raw/ctt.pk'):
-        ct = pk.load(open('raw/ct.pk', 'rb'))
-        ctt = pk.load(open('raw/ctt.pk', 'rb'))
+args = Config()
+if not os.path.exists('Datas/'):
+
+if os.path.exists('Datas/raw/ct.pk'):
+    if os.path.exists('Datas/raw/ctt.pk'):
+        ct = pk.load(open('Datas/raw/ct.pk', 'rb'))
+        ctt = pk.load(open('Datas/raw/ctt.pk', 'rb'))
 else:
     with open('raw/corpus.txt') as reader:
         data = reader.readlines()

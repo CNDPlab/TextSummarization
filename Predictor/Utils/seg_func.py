@@ -4,6 +4,7 @@ import re
 pattern = re.compile(r'[0-9]')
 seg = Seg_only()
 
+
 def clean(input):
     input = strq2b(input)
     input = re.sub(pattern, '#', input)

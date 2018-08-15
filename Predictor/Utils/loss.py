@@ -39,7 +39,8 @@ def masked_cross_entropy(inputs, targets, lenths, target_lenth):
     target_mask = lenth2mask(target_lenth, tar_max_lenth).data.float()
     losses = losses * input_mask * target_mask
     # losses [B, seqlenth]
-    losses = - (losses.sum(-1)/(input_mask * target_mask).sum(-1)).sum()/batch_size
+    losses = - losses.sum()/batch_size
+    #losses = - (losses.sum(-1)/(input_mask * target_mask)).sum()/batch_size
     return losses
 
 

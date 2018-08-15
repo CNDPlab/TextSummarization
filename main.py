@@ -57,24 +57,24 @@ def test(**kwargs):
     model = load['model']
     model.to('cuda')
     #TODO complete load_state_dict and predict
-    model.teacher_forcing_ratio = -100
+    model.teacher_forcing_ratio = 1
     scores = []
     with t.no_grad():
         for data in test_loader:
             batch_top_seq = []
             context, title, context_lenths, title_lenths = [i.to('cuda') for i in data]
-            top_seq = model.beam_search(context, context_lenths)
-            batch_top_seq.append(top_seq)
-            scores.append(batch_scorer(batch_top_seq, title, args.eos_id))
-    return np.mean(scores)
-            # token_id, prob_vector, token_lenth, attention_matrix = model(context, context_lenths, title)
-            # score = batch_scorer(token_id.tolist(),title.tolist(),args.eos_id)
-            # context_word = [[vocab.from_id_token(id.item()) for id in sample] for sample in context]
-            # words = [[vocab.from_id_token(id.item()) for id in sample] for sample in token_id]
-            # title_words = [[vocab.from_id_token(id.item()) for id in sample] for sample in title]
-            # for i in zip(context_word, words, title_words):
-            #     a = input('next')
-            #     print(f'context:{i[0]},pre:{i[1]}, tru:{i[2]}, score:{score}')
+    #         top_seq = model.beam_search(context, context_lenths)
+    #         batch_top_seq.append(top_seq)
+    #         scores.append(batch_scorer(batch_top_seq, title, args.eos_id))
+    # return np.mean(scores)
+            token_id, prob_vector, token_lenth, attention_matrix = model(context, context_lenths, title)
+            score = batch_scorer(token_id.tolist(),title.tolist(),args.eos_id)
+            context_word = [[vocab.from_id_token(id.item()) for id in sample] for sample in context]
+            words = [[vocab.from_id_token(id.item()) for id in sample] for sample in token_id]
+            title_words = [[vocab.from_id_token(id.item()) for id in sample] for sample in title]
+            for i in zip(context_word, words, title_words):
+                a = input('next')
+                print(f'context:{i[0]},pre:{i[1]}, tru:{i[2]}, score:{score}')
 
 
     # while True:

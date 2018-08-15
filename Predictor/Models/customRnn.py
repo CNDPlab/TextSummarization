@@ -23,8 +23,11 @@ class CustomRnn(t.nn.Module):
                                                  dropout=dropout,
                                                  batch_first=batch_first,
                                                  bidirectional=bidirectional)
-        for param in self.rnn.parameters():
-            t.nn.init.orthogonal_(param)
+        t.nn.init.xavier_normal_(self.rnn.bias_hh_l0)
+        t.nn.init.xavier_normal_(self.rnn.bias_ih_l0)
+        t.nn.init.orthogonal_(self.rnn.weight_hh_l0)
+        t.nn.init.orthogonal_(self.rnn.weight_ih_l0)
+
 
     def init_hidden_states(self):
         # TODO: add init hidden states with uniform

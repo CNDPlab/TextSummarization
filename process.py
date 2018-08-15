@@ -14,13 +14,15 @@ import pickle as pk
 import shutil
 
 args = Config()
+if not os.path.exists(args.datas_root):
+    os.mkdir(args.datas_root)
 
-if os.path.exists('raw/ct.pk'):
-    if os.path.exists('raw/ctt.pk'):
-        ct = pk.load(open('raw/ct.pk', 'rb'))
-        ctt = pk.load(open('raw/ctt.pk', 'rb'))
+if os.path.exists(args.raw_folder+'ct.pk'):
+    if os.path.exists(args.raw_folder+'ctt.pk'):
+        ct = pk.load(open(args.raw_folder+'ct.pk', 'rb'))
+        ctt = pk.load(open(args.raw_folder+'ctt.pk', 'rb'))
 else:
-    with open('raw/corpus.txt') as reader:
+    with open(args.raw_folder+'corpus.txt') as reader:
         data = reader.readlines()
 
     ct = []
@@ -35,12 +37,13 @@ else:
 
     ct = [i if i != '' else None for i in ct]
     ctt = [i if i != '' else None for i in ctt]
-    pk.dump(ct, open('raw/ct.pk', 'wb'))
-    pk.dump(ctt, open('raw/ctt.pk', 'wb'))
+    pk.dump(ct, open(args.raw_folder+'ct.pk', 'wb'))
+    pk.dump(ctt, open(args.raw_folder+'ctt.pk', 'wb'))
 
 df = pd.DataFrame({'text': ct, 'title': ctt})
 df = df.dropna()
 df = df.drop_duplicates()
+
 #df = df[(df['text'].apply(len) > 50) & (df['text'].apply(len) < 500)]
 datas = [{'text': v['text'], 'title': v['title']} for i, v in df.iterrows()]
 print(f'total {len(datas)} data')
@@ -83,8 +86,8 @@ del train, test, dev
 gc.collect()
 
 class Sentance(object):
-    def __init__(self):
-        self.path = 'middle/train.json'
+    def __init__(self,args):
+        self.path = args.middle_folder+'train.json'
         with open(self.path) as reader:
             self.lines = reader.readlines()
         self.text_seg = [json.loads(i)['text_seg'] for i in self.lines]
@@ -95,7 +98,7 @@ class Sentance(object):
             yield i
 
 print('generating w2v')
-sentance = Sentance()
+sentance = Sentance(args)
 counter = Counter()
 vocab = Vocab()
 for i in tqdm(sentance):
@@ -107,7 +110,7 @@ model.build_vocab(sentance)
 print('building vocab')
 model.train(sentance, total_examples=model.corpus_count, epochs=model.iter)
 print('saving w2v')
-model.save(f'pretrained_{args.embedding_dim}d_{len(model.wv.vocab)//1000}k.bin')
+model.save(f'{args.datas_root}pretrained_{args.embedding_dim}d_{len(model.wv.vocab)//1000}k.bin')
 
 print('filting vocab loading pretrained')
 vocab.filter_rare_word_build_vocab(5)
@@ -138,7 +141,12 @@ with open(args.middle_folder+'train.json') as reader:
         nline = json.loads(line)
         nline['text_id'] = [vocab.from_token_id(i) for i in nline['text_seg']]
         nline['title_id'] = [vocab.from_token_id(i) for i in nline['title_seg']]
-        if (len(nline['text_id']) > 50) & (len(nline['text_id']) < 500):
+        unk_id = vocab.from_token_id('<UNK>')
+        try:
+            num_unk = dict(Counter(nline['text_id']))[unk_id]
+        except:
+            num_unk = 0
+        if (len(nline['text_id']) > 50) & (len(nline['text_id']) < 500) & (num_unk/len(nline['text_id']) < args.unk_ratio):
             with open(args.processed_folder + 'train/' + str(i) +'train.json', 'w') as writer:
                 json.dump(nline, writer, ensure_ascii=False)
                 writer.write('\n')

@@ -18,8 +18,8 @@ def train(**kwargs):
     args.parse(kwargs)
     loss_func = masked_cross_entropy
     score_func = batch_scorer
-    train_set = DataSet('processed/train/')
-    dev_set = DataSet('processed/dev/')
+    train_set = DataSet(args.processed_folder+'train/')
+    dev_set = DataSet(args.processed_folder+'dev/')
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
     dev_loader = DataLoader(dev_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
     vocab = pk.load(open('Predictor/Utils/vocab.pkl', 'rb'))
@@ -45,7 +45,7 @@ def _load(path, model):
 
 def test(**kwargs):
     args = Config()
-    test_set = DataSet('processed/test/')
+    test_set = DataSet(args.processed_folder+'test/')
     test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
     vocab = pk.load(open('Predictor/Utils/vocab.pkl', 'rb'))
     eos_id, sos_id = vocab.token2id['<EOS>'], vocab.token2id['<BOS>']

@@ -3,12 +3,16 @@ import re
 
 pattern = re.compile(r'[0-9]')
 seg = Seg_only()
+stopwords = [line.strip() for line in open('Datas/stopwords.dat.txt', 'r', encoding='utf-8').readlines()]
+
 
 def clean(input):
     input = strq2b(input)
     input = re.sub(pattern, '#', input)
     input = input.replace(u'\u3000', '')
     input = seg.segment(input)
+    #去停用词
+    input = [word for word in input if word not in stopwords]
     return input
 
 def strq2b(ustring):

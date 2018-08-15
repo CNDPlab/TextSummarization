@@ -1,14 +1,18 @@
 from .Segmentor import Seg_only
 import re
 
-pattern = re.compile(r'[0-9]')
+pattern = re.compile('(\d+(\.\d+)?)')
 seg = Seg_only()
+stopwords = [line.strip() for line in open('Predictor/Utils/stopwords.dat.txt', 'r', encoding='utf-8').readlines()]
+
 
 def clean(input):
     input = strq2b(input)
     input = re.sub(pattern, '#', input)
     input = input.replace(u'\u3000', '')
     input = seg.segment(input)
+    #去停用词
+    input = [word for word in input if word not in stopwords]
     return input
 
 def strq2b(ustring):
@@ -31,4 +35,6 @@ def seg_func(input_line):
     input_line['title_seg'] = ['<BOS>'] + clean(title) + ['<EOS>']
     return input_line
 
-
+def predict_pipeline(input_str):
+    token_id = clean(input_str)
+    return token_id

@@ -1,6 +1,7 @@
 import torch as t
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 import numpy as np
+import ipdb
 
 
 class CustomRnn(t.nn.Module):
@@ -22,15 +23,16 @@ class CustomRnn(t.nn.Module):
                                                  dropout=dropout,
                                                  batch_first=batch_first,
                                                  bidirectional=bidirectional)
-
     def init_hidden_states(self):
         # TODO: add init hidden states with uniform
         pass
 
     def forward(self, inputs, lenths):
+        if isinstance(lenths, t.Tensor):
+            lenths = lenths.cpu().tolist()
         device = inputs.device
         sorted_index = np.argsort(-np.array(lenths))
-        sorted_lenths = lenths[sorted_index]
+        sorted_lenths = np.array(lenths)[sorted_index]
         unsorted_index = np.argsort(sorted_index)
 
         sorted_index = t.Tensor(sorted_index).long().to(device)
@@ -46,6 +48,7 @@ class CustomRnn(t.nn.Module):
         hidden_states = hidden_states.index_select(index=unsorted_index, dim=0)
         last_states = last_states.transpose(0, 1).index_select(index=unsorted_index, dim=0)
         return hidden_states, last_states
+
 
 
 

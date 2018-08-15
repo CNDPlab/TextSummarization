@@ -9,6 +9,7 @@ class Config(object):
     saved_vocab = 'Predictor/Utils/vocab.pkl'
     tensorboard_root = 'ckpt/logs/'
     saved_model_root = 'ckpt/saved_models/'
+    test_model_name = None
     model_name = 'EncoderDecoder'
     resume = False
     device = 'cuda:0'

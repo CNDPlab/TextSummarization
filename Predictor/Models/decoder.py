@@ -27,8 +27,6 @@ class Decoder(t.nn.Module):
         self.teacher_forcing_ratio = 1
         self.merge_context_output = t.nn.Linear(hidden_size*2, hidden_size)
         self.projection = t.nn.Linear(hidden_size*2, hidden_size)
-        t.nn.init.xavier_normal_(self.rnn.bias_hh_l0)
-        t.nn.init.xavier_normal_(self.rnn.bias_ih_l0)
         t.nn.init.orthogonal_(self.rnn.weight_hh_l0)
         t.nn.init.orthogonal_(self.rnn.weight_ih_l0)
 

@@ -49,3 +49,10 @@ class Vocab(object):
 
     def save(self, path):
         pk.dump(self, open(path, 'wb'))
+
+class Vocab_collector(object):
+    def __init__(self):
+        self.name_space = []
+
+    def add_name_space(self):
+        pass

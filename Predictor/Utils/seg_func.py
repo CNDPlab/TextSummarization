@@ -39,3 +39,4 @@ def seg_func(input_line):
 def predict_pipeline(input_str):
     token_id = clean(input_str)
     return token_id
+

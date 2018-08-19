@@ -86,7 +86,7 @@ del train, test, dev
 gc.collect()
 
 class Sentance(object):
-    def __init__(self,args):
+    def __init__(self, args):
         self.path = args.middle_folder+'train.json'
         with open(self.path) as reader:
             self.lines = reader.readlines()
@@ -180,7 +180,5 @@ if not os.path.exists('ckpt'):
     os.mkdir('ckpt/')
     os.mkdir(args.tensorboard_root)
     os.mkdir((args.saved_model_root))
-#TODO q去除停用词
-#TODO 过滤过多unk的数据
 
 

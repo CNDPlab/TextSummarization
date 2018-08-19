@@ -23,6 +23,10 @@ class CustomRnn(t.nn.Module):
                                                  dropout=dropout,
                                                  batch_first=batch_first,
                                                  bidirectional=bidirectional)
+        if self.bidirectional:
+            self.hidden_states_reshape = t.nn.Linear(2 * self.hidden_size, self.hidden_size)
+            self.final_state_reshape = t.nn.Linear(2 * self.hidden_size, self.hidden_size)
+
     def init_hidden_states(self):
         # TODO: add init hidden states with uniform
         pass
@@ -42,11 +46,13 @@ class CustomRnn(t.nn.Module):
         sorted_sequences = inputs.index_select(index=sorted_index, dim=0)
 
         packed = pack_padded_sequence(sorted_sequences, sorted_lenths, batch_first=self.batch_first,)
+        ipdb.set_trace()
         hidden_states, last_states = self.rnn(packed)
         hidden_states, _ = pad_packed_sequence(hidden_states, batch_first=self.batch_first)
 
         hidden_states = hidden_states.index_select(index=unsorted_index, dim=0)
         last_states = last_states.transpose(0, 1).index_select(index=unsorted_index, dim=0)
+        last_states = t.cat(last_states.split(1, 1),)
         return hidden_states, last_states
 
 
@@ -66,8 +72,8 @@ def test():
     a = t.Tensor([[1, 3, 0], [1, 2, 2]]).long()
     emb = t.nn.Embedding(10, 5, padding_idx=0)
     a = emb(a)
-    b = CustomRnn('RNN', input_size=5, hidden_size=5, num_layers=1, dropout=0,bidirectional=True)
-    hidden_states, final_states = b(a, t.Tensor([2, 3]))
+    b = CustomRnn('RNN', input_size=5, hidden_size=5, num_layers=2, dropout=0, bidirectional=True)
+    hidden_states, final_states = b(a, t.Tensor([3, 3]))
     print(hidden_states.shape)
     print(final_states.shape)
 

@@ -21,7 +21,6 @@ def masked_cross_entropy(inputs, targets, lenths, target_lenth):
     if inp_max_lenth >= tar_max_lenth:
         inputs = inputs[:, :tar_max_lenth, :]
     else:
-        #TODO zero?
         inputs = t.cat([inputs, t.zeros((batch_size, tar_max_lenth-inp_max_lenth, vocabulary_size)).to(device)], dim=-2)
 
 
@@ -44,7 +43,6 @@ def masked_cross_entropy(inputs, targets, lenths, target_lenth):
 
 
 if __name__ == '__main__':
-    #TODO test inputlenth<target_lenth
     inputs = t.Tensor([[[0.9, 0.05, 0.05], [0.9, 0.05, 0.05]], [[0.9, 0.05, 0.05], [0.9, 0.05, 0.05]]])
     targets = t.Tensor([[1, 1], [0, 0]]).long()
     input_lenth = t.Tensor([2, 1]).long()

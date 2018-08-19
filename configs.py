@@ -3,7 +3,7 @@ import warnings
 
 class Config(object):
     datas_root = 'Datas/'
-    raw_folder = 'Datas/raw/'
+    raw_folder = 'Datas/LCSTS2.0/'
     middle_folder = 'Datas/middle/'
     processed_folder = 'Datas/processed/'
     saved_vocab = 'Predictor/Utils/vocab.pkl'

@@ -46,13 +46,11 @@ class CustomRnn(t.nn.Module):
         sorted_sequences = inputs.index_select(index=sorted_index, dim=0)
 
         packed = pack_padded_sequence(sorted_sequences, sorted_lenths, batch_first=self.batch_first,)
-        ipdb.set_trace()
         hidden_states, last_states = self.rnn(packed)
         hidden_states, _ = pad_packed_sequence(hidden_states, batch_first=self.batch_first)
 
         hidden_states = hidden_states.index_select(index=unsorted_index, dim=0)
         last_states = last_states.transpose(0, 1).index_select(index=unsorted_index, dim=0)
-        last_states = t.cat(last_states.split(1, 1),)
         return hidden_states, last_states
 
 

@@ -171,7 +171,7 @@ with open(args.middle_folder+'dev.json') as reader:
         nline['text_id'] = [vocab.from_token_id(i) for i in nline['text_seg']]
         nline['title_id'] = [vocab.from_token_id(i) for i in nline['title_seg']]
         if (len(nline['text_id']) > 50) & (len(nline['text_id']) < 500):
-            with open(args.processed_folder + 'dev/' + str(i) +'dev.json','w') as writer:
+            with open(args.processed_folder + 'dev/' + str(i) + 'dev.json', 'w') as writer:
                 json.dump(nline, writer, ensure_ascii=False)
                 writer.write('\n')
                 i += 1

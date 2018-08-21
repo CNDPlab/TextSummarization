@@ -20,8 +20,20 @@ class Trainner(object):
         self.save_path = args.saved_model_root
         self.teacher_forcing_ratio = 1
 
-    def train(self, model, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio, resume):
+
+    def train(self, model, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio, resume, exp_root=None):
         print(f'resume:{resume}')
+        if exp_root is not None:
+            self.exp_root = self.args.ckpt_root + exp_root
+            self.tensorboard_root = self.exp_root + 'logs/'
+            self.model_root = self.exp_root + 'saved_models/'
+        else:
+            self.exp_root = self.args.ckpt_root + self.init_time + '/'
+            self.tensorboard_root = self.exp_root + 'logs/'
+            self.model_root = self.exp_root + 'saved_models/'
+            os.mkdir(self.exp_root)
+            os.mkdir(self.tensorboard_root)
+            os.mkdir(self.model_root)
         model.to(self.device)
         self.teacher_forcing_ratio = teacher_forcing_ratio
         optimizer = t.optim.Adam(model.parameters())
@@ -30,10 +42,10 @@ class Trainner(object):
             optimizer = loaded['optimizer']
             model = loaded['model']
             print(self.global_step, self.global_epoch)
-        os.mkdir(self.args.tensorboard_root+self.init_time+'/')
-        self.summary_writer = SummaryWriter(self.args.tensorboard_root+self.init_time+'/')
+        os.mkdir(self.tensorboard_root+self.init_time+'/')
+        self.summary_writer = SummaryWriter(self.tensorboard_root+self.init_time+'/')
         print(f'summary writer running in:')
-        print(f'tensorboard --logdir {self.args.tensorboard_root+self.init_time}')
+        print(f'tensorboard --logdir {self.tensorboard_root+self.init_time}')
         for epoch in range(self.args.epochs):
             self._train_epoch(model, optimizer, loss_func, score_func, train_loader, dev_loader)
             self.global_epoch += 1
@@ -98,7 +110,7 @@ class Trainner(object):
     def _save(self, model, epoch, step, optimizer, score):
         date_time = time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime())
         info = date_time + '_' + str(score)
-        path = os.path.join(self.save_path, info)
+        path = os.path.join(self.model_root, info)
         if not os.path.exists(path):
             os.mkdir(path)
         t.save({'epoch': epoch,
@@ -116,12 +128,12 @@ class Trainner(object):
                 'model': model}
 
     def get_latest_cpath(self):
-        file_name = os.listdir(self.save_path)
+        file_name = os.listdir(self.model_root)
         latest = sorted(file_name, key=lambda x: x.split('_')[0], reverse=True)[0]
-        return os.path.join(self.save_path, latest)
+        return os.path.join(self.model_root, latest)
 
     def select_topk_model(self, k):
-        file_name = os.listdir(self.save_path)
+        file_name = os.listdir(self.model_root)
         remove_file = sorted(file_name, key=lambda x: x.split('_')[1], reverse=True)[k:]
         for i in remove_file:
-            shutil.rmtree(os.path.join(self.save_path, i))
+            shutil.rmtree(os.path.join(self.model_root, i))

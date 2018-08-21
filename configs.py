@@ -7,7 +7,7 @@ class Config(object):
     middle_folder = 'Datas/middle/'
     processed_folder = 'Datas/processed/'
     saved_vocab = 'Predictor/Utils/vocab.pkl'
-    tensorboard_root = 'ckpt/logs/'
+    ckpt_root = 'ckpt/'
     saved_model_root = 'ckpt/saved_models/'
     model_name = 'EncoderDecoder'
     resume = False

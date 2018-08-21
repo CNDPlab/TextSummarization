@@ -16,7 +16,7 @@ class Decoder(t.nn.Module):
         self.sos_id, self.eos_id = sos_id, eos_id
         self.beam_size = beam_size
         self.use_teacher_forcing = True
-        self.rnn = t.nn.RNN(input_size=input_size,
+        self.rnn = t.nn.GRU(input_size=input_size,
                             hidden_size=hidden_size,
                             bidirectional=False,
                             dropout=0,
@@ -28,6 +28,8 @@ class Decoder(t.nn.Module):
         self.projection = t.nn.Linear(hidden_size*2, self.vocab_size)
         t.nn.init.xavier_normal_(self.merge_context_output.weight)
         t.nn.init.xavier_normal_(self.projection.weight)
+        t.nn.init.orthogonal_(self.rnn.weight_hh_l0)
+        t.nn.init.orthogonal_(self.rnn.weight_ih_l0)
 
     def forward(self, true_seq=None,
                 encoder_hidden_states=None,

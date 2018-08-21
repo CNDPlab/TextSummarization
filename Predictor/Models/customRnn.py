@@ -17,15 +17,20 @@ class CustomRnn(t.nn.Module):
         self.dropout = dropout
         self.batch_first = batch_first
         self.bidirectional = bidirectional
+        self.drop = t.nn.Dropout(self.dropout)
         self.rnn = getattr(t.nn, self.cell_type)(input_size=input_size,
                                                  hidden_size=hidden_size,
                                                  num_layers=num_layers,
-                                                 dropout=dropout,
+                                                 dropout=0,
                                                  batch_first=batch_first,
                                                  bidirectional=bidirectional)
         if self.bidirectional:
             self.hidden_states_reshape = t.nn.Linear(2 * self.hidden_size, self.hidden_size)
             self.final_state_reshape = t.nn.Linear(2 * self.hidden_size, self.hidden_size)
+            t.nn.init.xavier_normal_(self.hidden_states_reshape.weight)
+            t.nn.init.xavier_normal_(self.final_state_reshape.weight)
+        t.nn.init.orthogonal_(self.rnn.weight_hh_l0)
+        t.nn.init.orthogonal_(self.rnn.weight_ih_l0)
 
     def init_hidden_states(self):
         # TODO: add init hidden states with uniform
@@ -51,8 +56,9 @@ class CustomRnn(t.nn.Module):
 
         hidden_states = hidden_states.index_select(index=unsorted_index, dim=0)
         last_states = last_states.transpose(0, 1).index_select(index=unsorted_index, dim=0)
-        hidden_states = self.hidden_states_reshape(hidden_states)
-        last_states = self.final_state_reshape(t.cat(last_states.split(1, 1), -1))
+        hidden_states = self.drop(self.hidden_states_reshape(hidden_states))
+        last_states = self.drop(self.final_state_reshape(t.cat(last_states.split(1, 1), -1)))
+
         return hidden_states, last_states
 
 

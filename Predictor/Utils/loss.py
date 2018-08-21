@@ -18,18 +18,12 @@ def masked_cross_entropy(inputs, targets, lenths, target_lenth):
 
     flat_inputs_log = inputs.contiguous().view(-1, vocabulary_size)
     flat_targets = targets.view(-1, 1)
-    try:
-        losses = t.gather(flat_inputs_log, dim=1, index=flat_targets.long()).view(*targets.size())
-    except:
-        ipdb.set_trace()
-        print(flat_inputs_log.size())
-        print(flat_targets.size())
-        print(inputs.size())
-        print(targets.size())
+    losses = t.gather(flat_inputs_log, dim=1, index=flat_targets.long()).view(*targets.size())
+
     target_mask = lenth2mask(target_lenth, tar_max_lenth).data.float()
     losses = losses * target_mask
     # losses [B, seqlenth]
-    losses = - (losses.sum()) / batch_size
+    losses = - (losses.sum(-1)/target_mask.sum(-1)).sum() / batch_size
     return losses
 
 
@@ -38,9 +32,7 @@ if __name__ == '__main__':
     targets = t.Tensor([[1, 1], [0, 0]]).long()
     input_lenth = t.Tensor([2, 1]).long()
     target_lenth = t.Tensor([2, 2]).long()
-    masked_cross_entropy(inputs=t.nn.functional.log_softmax(inputs, -1), targets=targets, lenths=input_lenth, target_lenth=target_lenth)
+    print(masked_cross_entropy(inputs=t.log(inputs), targets=targets, lenths=input_lenth, target_lenth=target_lenth))
 
-
-
-
-t.nn.NLLLoss
+    inputs = t.Tensor([[[0.9, 0.05, 0.05], [0.9, 0.05, 0.05]], [[0.9, 0.05, 0.05], [0.9, 0.05, 0.05]]])
+    targets = t.Tensor([])

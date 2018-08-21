@@ -53,7 +53,7 @@ class EncoderDecoder(t.nn.Module):
         hidden_states, final_states = self.encoder(net, lenths)
         output_seq = []
         for i in range(inputs.shape[0]):
-            top_seq = self.decoder.beam_search(final_states[i], net, encoder_hidden_states=hidden_states,encoder_lenths=lenths[i])
+            top_seq = self.decoder.beam_search(final_states[i], net, encoder_hidden_states=hidden_states, encoder_lenths=lenths[i])
             output_seq.append(top_seq)
         return output_seq
 

@@ -42,10 +42,10 @@ class Trainner(object):
             optimizer = loaded['optimizer']
             model = loaded['model']
             print(self.global_step, self.global_epoch)
-        os.mkdir(self.tensorboard_root+self.init_time+'/')
-        self.summary_writer = SummaryWriter(self.tensorboard_root+self.init_time+'/')
+        self.summary_writer = SummaryWriter(self.tensorboard_root)
         print(f'summary writer running in:')
-        print(f'tensorboard --logdir {self.tensorboard_root+self.init_time}')
+        print(f'tensorboard --logdir {self.tensorboard_root}')
+        self.summary_writer.add_embedding(model.embedding.weight.data, global_step=self.global_step)
         for epoch in range(self.args.epochs):
             self._train_epoch(model, optimizer, loss_func, score_func, train_loader, dev_loader)
             self.global_epoch += 1
@@ -67,11 +67,13 @@ class Trainner(object):
                 score = self._eval(model, loss_func, score_func, dev_loader)
                 if self.global_step % self.args.save_every_step == 0:
                     self._save(model, self.global_epoch, self.global_step, optimizer, score)
-
+            if self.global_step == 50000:
+                self.summary_writer.add_embedding(model.embedding.weight.data, global_step=self.global_step)
     def _train_step(self, model, optimizer, loss_func, data):
         optimizer.zero_grad()
         train_loss = self._data2loss(model, loss_func, data)
         train_loss.backward()
+        t.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=5.0)
         optimizer.step()
 
         self.summary_writer.add_scalar('loss/train_loss', train_loss.item(), self.global_step)

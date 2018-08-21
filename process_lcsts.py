@@ -41,6 +41,15 @@ if os.path.exists(args.middle_folder):
 os.mkdir(args.middle_folder)
 
 
+def process_data(data):
+    data = data[1]
+    data['text_char'] = ['<BOS>'] + [i for i in data.text] + ['<EOS>']
+    data['summary_char'] = ['<BOS>'] + [i for i in data.summary] + ['<EOS>']
+    del data['text'], data['summary']
+    line = {i: data[i] for i in data.keys()}
+    return line
+
+
 def middle_process_save(df, set):
     with open(args.middle_folder+set+'.json', 'w') as writer:
         with ProcessPoolExecutor(10) as executor:
@@ -53,13 +62,6 @@ def middle_process_save(df, set):
             writer.write('\n')
 
 
-def process_data(data):
-    data = data[1]
-    data['text_char'] = ['<BOS>'] + [i for i in data.text] + ['<EOS>']
-    data['summary_char'] = ['<BOS>'] + [i for i in data.summary] + ['<EOS>']
-    del data['text'], data['summary']
-    line = {i: data[i] for i in data.keys()}
-    return line
 
 
 middle_process_save(dev_df, 'dev')

@@ -2,10 +2,14 @@ import warnings
 
 
 class Config(object):
-    datas_root = 'Datas/'
-    raw_folder = 'Datas/raw/'
-    middle_folder = 'Datas/middle/'
-    processed_folder = 'Datas/processed/'
+    datas_root = 'Datas/sog/'
+    raw_folder = 'Datas/sog/raw/'
+    middle_folder = 'Datas/sog/middle/'
+    processed_folder = 'Datas/sog/processed/'
+    datas_root_lcsts = 'Datas/lcsts/'
+    raw_folder_lcsts = 'Datas/lcsts/raw/'
+    middle_folder_lcsts = 'Datas/lcsts/middle/'
+    processed_folder_lcsts = 'Datas/lcsts/processed/'
     saved_vocab = 'Predictor/Utils/vocab.pkl'
     tensorboard_root = 'ckpt/logs/'
     saved_model_root = 'ckpt/saved_models/'

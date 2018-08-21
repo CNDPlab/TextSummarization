@@ -48,7 +48,8 @@ class Trainner(object):
             if self.global_step >= self.args.close_teacher_forcing_step:
                 self.teacher_forcing_ratio = -100
             else:
-                self.teacher_forcing_ratio *= self.args.tf_ratio_decay_ratio
+                self.teacher_forcing_ratio -= self.args.tf_ratio_decay_ratio
+
             if self.global_step % self.args.eval_every_step == 0:
                 model.teacher_forcing_ratio = -100
                 score = self._eval(model, loss_func, score_func, dev_loader)

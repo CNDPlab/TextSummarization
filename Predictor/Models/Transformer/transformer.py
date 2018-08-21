@@ -1,4 +1,5 @@
 import torch as t
+#TODO: complete
 
 
 def position_encoding(inputs):
@@ -9,21 +10,23 @@ def position_encoding(inputs):
 class Encoder(t.nn.Module):
     def __init__(self, args, matrix):
         super(Encoder, self).__init__()
-        self.num_encoder_block = None
+        self.num_encoder_block = 6
         self.embedding = t.nn.Embedding(matrix.size()[0], matrix.size()[1], padding_idx=args.padding_index)
         self.position_encoding = t.nn.Embedding()
-        self.encoder_block = None
+        self.encoder_block = EncoderBlock()
         self.encoder_blocks = t.nn.ModuleList([EncoderBlock() for _ in range(self.num_encoder_block)])
 
-    def forward(inputs):
+    def forward(self, inputs):
+        net = self.embedding(inputs)
+        net = self.encoder_blocks(net)
+        return net
 
-        pass
 
 class EncoderBlock(t.nn.Module):
     def __init__(self):
         super(EncoderBlock, self).__init__()
 
-        self.multi_head_attention = None
+        self.multi_head_attention = MultiHeadAttentionBlock
         self.feed_forward_net = None
         #TODO layer_normalization
 
@@ -79,8 +82,6 @@ class MultiHeadAttention(t.nn.Module):
         pass
 
 
-
-
 class SelfAttention(t.nn.Module):
     def __init__(self, hidden_size, drop_ratio):
         super(SelfAttention, self).__init__()
@@ -95,6 +96,12 @@ class SelfAttention(t.nn.Module):
         attention = self.dropout(attention)
         output = t.bmm(attention, value)
         return output, attention
+
+
+
+
+
+
 
 
 

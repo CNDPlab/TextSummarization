@@ -2,32 +2,27 @@ import warnings
 
 
 class Config(object):
-    datas_root = 'Datas/sog/'
-    raw_folder = 'Datas/sog/raw/'
-    middle_folder = 'Datas/sog/middle/'
-    processed_folder = 'Datas/sog/processed/'
-    datas_root_lcsts = 'Datas/lcsts/'
-    raw_folder_lcsts = 'Datas/lcsts/raw/'
-    middle_folder_lcsts = 'Datas/lcsts/middle/'
-    processed_folder_lcsts = 'Datas/lcsts/processed/'
+    datas_root = 'Datas/'
+    raw_folder = 'Datas/LCSTS2.0/'
+    middle_folder = 'Datas/middle/'
+    processed_folder = 'Datas/processed/'
     saved_vocab = 'Predictor/Utils/vocab.pkl'
     tensorboard_root = 'ckpt/logs/'
     saved_model_root = 'ckpt/saved_models/'
-    test_model_name = '2018_08_15_04_31_36_0.4096739557135578'
     model_name = 'EncoderDecoder'
     resume = False
     device = 'cuda:0'
     embedding_dim = 128
     epochs = 20
     beam_size = 3
-    batch_size = 32
+    batch_size = 64
     padding_idx = 0
     hidden_size = 128
-    dropout = 0.5
-    init_tf_ratio = 1
+    dropout = 0
+    init_tf_ratio = -100
     tf_ratio_decay_ratio = 0.9999
     close_teacher_forcing_step = 50000
-    num_layers = 2
+    num_layers = 1
     num_model_tosave = 3
     sos_id = None
     eos_id = None

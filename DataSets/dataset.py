@@ -11,13 +11,11 @@ class DataSet(Dataset):
         super(DataSet, self).__init__()
         self.files = [path + i for i in os.listdir(path)]
 
-
     def __getitem__(self, item):
         line = json.load(open(self.files[item]))
         text_len = len(line['text_id'])
-        title_len = len(line['title_id'])
-        return np.array(line['text_id']), np.array(line['title_id']), text_len, title_len
-
+        title_len = len(line['summary_id'])
+        return np.array(line['text_id']), np.array(line['summary_id']), text_len, title_len
 
     def __len__(self):
         return len(self.files)

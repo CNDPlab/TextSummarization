@@ -11,19 +11,10 @@ def masked_cross_entropy(inputs, targets, lenths, target_lenth):
     :param lenths: [B]
     :return: loss tensor [1]
     """
-
     batch_size, inp_max_lenth, vocabulary_size = inputs.size()
     tar_max_lenth = targets.size()[-1]
     device = inputs.device
-
     vocabulary_size = inputs.size()[-1]
-
-    if inp_max_lenth >= tar_max_lenth:
-        inputs = inputs[:, :tar_max_lenth, :]
-    else:
-        #TODO zero?
-        inputs = t.cat([inputs, t.zeros((batch_size, tar_max_lenth-inp_max_lenth, vocabulary_size)).to(device)], dim=-2)
-
 
     flat_inputs_log = inputs.contiguous().view(-1, vocabulary_size)
     flat_targets = targets.view(-1, 1)
@@ -35,17 +26,14 @@ def masked_cross_entropy(inputs, targets, lenths, target_lenth):
         print(flat_targets.size())
         print(inputs.size())
         print(targets.size())
-    input_mask = lenth2mask(lenths, tar_max_lenth).data.float()
     target_mask = lenth2mask(target_lenth, tar_max_lenth).data.float()
-    losses = losses * input_mask * target_mask
+    losses = losses * target_mask
     # losses [B, seqlenth]
-    losses = - losses.sum()/batch_size
-    #losses = - (losses.sum(-1)/(input_mask * target_mask)).sum()/batch_size
+    losses = - (losses.sum()) / batch_size
     return losses
 
 
 if __name__ == '__main__':
-    #TODO test inputlenth<target_lenth
     inputs = t.Tensor([[[0.9, 0.05, 0.05], [0.9, 0.05, 0.05]], [[0.9, 0.05, 0.05], [0.9, 0.05, 0.05]]])
     targets = t.Tensor([[1, 1], [0, 0]]).long()
     input_lenth = t.Tensor([2, 1]).long()
@@ -55,3 +43,4 @@ if __name__ == '__main__':
 
 
 
+t.nn.NLLLoss

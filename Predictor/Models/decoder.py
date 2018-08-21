@@ -3,7 +3,6 @@ from Predictor.Models.attention import Attention, beam_Attention
 import numpy as np
 import random
 import ipdb
-import collections
 
 
 class Decoder(t.nn.Module):
@@ -26,10 +25,7 @@ class Decoder(t.nn.Module):
                             )
         self.teacher_forcing_ratio = 1
         self.merge_context_output = t.nn.Linear(hidden_size*2, hidden_size)
-        self.projection = t.nn.Linear(hidden_size*2, hidden_size)
-        t.nn.init.orthogonal_(self.rnn.weight_hh_l0)
-        t.nn.init.orthogonal_(self.rnn.weight_ih_l0)
-
+        self.projection = t.nn.Linear(hidden_size*2, self.vocab_size)
         t.nn.init.xavier_normal_(self.merge_context_output.weight)
         t.nn.init.xavier_normal_(self.projection.weight)
 
@@ -77,8 +73,8 @@ class Decoder(t.nn.Module):
                     if (i not in ended_seq_id) & (v.item() == self.eos_id):
                         output_seq_lenth[i] = step
                         ended_seq_id.append(i)
-                if len(ended_seq_id) == batch_size:
-                    break
+                # if len(ended_seq_id) == batch_size:
+                #     break
             else:
                 output_token_list.append(token)
                 output_prob_list.append(prob)
@@ -88,9 +84,8 @@ class Decoder(t.nn.Module):
                         output_seq_lenth[i] = step
                         ended_seq_id.append(i)
 
-
         output_seq_lenth = np.asarray([val for key, val in sorted(output_seq_lenth.items())])
-        return t.stack(output_token_list).transpose(0, 1), t.cat(output_prob_list, dim=1), t.from_numpy(output_seq_lenth).to(device), t.cat(output_attention_list, dim=-2)
+        return t.stack(output_token_list).transpose(0, 1), t.cat(output_prob_list, dim=1), t.from_numpy(output_seq_lenth).to(device), t.stack(output_attention_list, dim=1)
 
     def forward_step(self, input_token, input_hidden_state, embedding, encoder_hidden_states, encoder_lenths, context_vector):
         """
@@ -113,8 +108,6 @@ class Decoder(t.nn.Module):
         # attention_vector [B, seq_lenth, 1]
         # contexT_vector [B, seq_lenth, 1]
         output_state = self.projection(t.cat([output_state, context_vector], -1))
-        output_state = t.mm(output_state.squeeze(-2), embedding.weight.transpose(0, 1))
-        output_state.unsqueeze_(-2)
         output_prob = t.nn.functional.log_softmax(output_state, dim=-1)
         output_token = output_prob.topk(1)[1]
         return output_token.long().squeeze(), output_prob, hidden_state, attention_vector, context_vector
@@ -134,8 +127,6 @@ class Decoder(t.nn.Module):
         attention_vector, context_vector = beam_Attention(encoder_hidden_states, encoder_lenths, output_state)
 
         output_state = self.projection(t.cat([output_state, context_vector], -1))
-        output_state = t.mm(output_state, embedding.weight.transpose(0, 1))
-
         output_token = t.nn.functional.softmax(output_state, dim=-1)
         output_prob = output_token.topk(self.beam_size)[0]
         output_token = output_token.topk(self.beam_size)[1]

@@ -6,20 +6,14 @@ seg = Seg_only()
 stopwords = [line.strip() for line in open('Predictor/Utils/stopwords.dat.txt', 'r', encoding='utf-8').readlines()]
 
 
-def clean_text(input):
+
+def clean(input):
     input = strq2b(input)
     input = re.sub(pattern, '#', input)
     input = input.replace(u'\u3000', '')
     input = seg.segment(input)
     #去停用词
     input = [word for word in input if word not in stopwords]
-    return input
-
-def clean_title(input):
-    input = strq2b(input)
-    input = re.sub(pattern, '#', input)
-    input = input.replace(u'\u3000', '')
-    input = seg.segment(input)
     return input
 
 def strq2b(ustring):
@@ -38,10 +32,11 @@ def strq2b(ustring):
 def seg_func(input_line):
     text = input_line['text']
     title = input_line['title']
-    input_line['text_seg'] = ['<BOS>'] + clean_text(text) + ['<EOS>']
-    input_line['title_seg'] = ['<BOS>'] + clean_title(title) + ['<EOS>']
+    input_line['text_seg'] = ['<BOS>'] + clean(text) + ['<EOS>']
+    input_line['title_seg'] = ['<BOS>'] + clean(title) + ['<EOS>']
     return input_line
 
 def predict_pipeline(input_str):
-    token_id = clean_text(input_str)
+    token_id = clean(input_str)
     return token_id
+

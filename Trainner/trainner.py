@@ -67,7 +67,7 @@ class Trainner(object):
                 score = self._eval(model, loss_func, score_func, dev_loader)
                 if self.global_step % self.args.save_every_step == 0:
                     self._save(model, self.global_epoch, self.global_step, optimizer, score)
-            if self.global_step == 50000:
+            if self.global_step == 5000:
                 self.summary_writer.add_embedding(model.embedding.weight.data, global_step=self.global_step)
     def _train_step(self, model, optimizer, loss_func, data):
         optimizer.zero_grad()

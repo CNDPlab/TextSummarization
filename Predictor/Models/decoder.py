@@ -67,6 +67,11 @@ class Decoder(t.nn.Module):
                                                                                             encoder_hidden_states,
                                                                                             encoder_lenths,
                                                                                             context_vector)
+            #intra-temporal attention
+            if step > 0:
+                #ipdb.set_trace()
+                attention_vector = attention_vector / t.sum(t.stack(output_attention_list[:step]),dim=0)
+
             if step != true_seq.size()[-1]-1:
                 output_token_list.append(token)
                 output_prob_list.append(prob)

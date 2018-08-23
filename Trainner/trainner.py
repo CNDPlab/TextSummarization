@@ -111,7 +111,7 @@ class Trainner(object):
 
     def _save(self, model, epoch, step, optimizer, score):
         date_time = time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime())
-        info = date_time + '_' + str(score)
+        info = date_time + 'T' + str(score)
         path = os.path.join(self.model_root, info)
         if not os.path.exists(path):
             os.mkdir(path)
@@ -131,11 +131,11 @@ class Trainner(object):
 
     def get_latest_cpath(self):
         file_name = os.listdir(self.model_root)
-        latest = sorted(file_name, key=lambda x: x.split('_')[0], reverse=True)[0]
+        latest = sorted(file_name, key=lambda x: x.split('T')[0], reverse=True)[0]
         return os.path.join(self.model_root, latest)
 
     def select_topk_model(self, k):
         file_name = os.listdir(self.model_root)
-        remove_file = sorted(file_name, key=lambda x: x.split('_')[1], reverse=True)[k:]
+        remove_file = sorted(file_name, key=lambda x: x.split('T')[1], reverse=True)[k:]
         for i in remove_file:
             shutil.rmtree(os.path.join(self.model_root, i))

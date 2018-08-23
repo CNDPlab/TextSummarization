@@ -3,6 +3,7 @@ from Predictor.Models.attention import Attention, beam_Attention
 import numpy as np
 import random
 import ipdb
+from collections import OrderedDict
 
 
 class Decoder(t.nn.Module):
@@ -24,10 +25,21 @@ class Decoder(t.nn.Module):
                             num_layers=num_layer
                             )
         self.teacher_forcing_ratio = 1
-        self.merge_context_output = t.nn.Linear(hidden_size*2, hidden_size)
-        self.projection = t.nn.Linear(hidden_size*2, self.vocab_size)
-        t.nn.init.xavier_normal_(self.merge_context_output.weight)
-        t.nn.init.xavier_normal_(self.projection.weight)
+        self.merge_context_output = t.nn.Sequential(OrderedDict([
+            ('linear1', t.nn.Linear(hidden_size, hidden_size)),
+            ('relu', t.nn.ReLU(True)),
+            ('drop', t.nn.Dropout(0.5)),
+        ]))
+        self.projection = t.nn.Sequential(OrderedDict([
+            ('linear1', t.nn.Linear(hidden_size , hidden_size)),
+            ('relu', t.nn.ReLU(True)),
+            ('drop', t.nn.Dropout(0.5)),
+            ('linear2', t.nn.Linear(hidden_size, vocab_size))
+        ]))
+
+        t.nn.init.xavier_normal_(self.merge_context_output.linear1.weight)
+        t.nn.init.xavier_normal_(self.projection.linear1.weight)
+        t.nn.init.xavier_normal_(self.projection.linear2.weight)
         t.nn.init.orthogonal_(self.rnn.weight_hh_l0)
         t.nn.init.orthogonal_(self.rnn.weight_ih_l0)
 
@@ -68,9 +80,9 @@ class Decoder(t.nn.Module):
                                                                                             encoder_lenths,
                                                                                             context_vector)
             #intra-temporal attention
-            if step > 0:
-                #ipdb.set_trace()
-                attention_vector = attention_vector / t.sum(t.stack(output_attention_list[:step]),dim=0)
+            # if step > 0:
+            #     ipdb.set_trace()
+            #     attention_vector = attention_vector / t.sum(t.stack(output_attention_list),dim=0)
 
             if step != true_seq.size()[-1]-1:
                 output_token_list.append(token)
@@ -104,9 +116,10 @@ class Decoder(t.nn.Module):
         :param context_vector: [B, 1, hidden_size]
         :return:
         """
+
         input_vector = embedding(input_token.unsqueeze(-1))
         # input_vector [B, 1, hidden_size]
-        rnn_input = t.cat([input_vector, context_vector], -1)
+        rnn_input = input_vector + context_vector
         # rnn_input [B, 1, hidden_size*2]
         rnn_input = self.merge_context_output(rnn_input)
         output_state, hidden_state = self.rnn(rnn_input, input_hidden_state)
@@ -114,7 +127,7 @@ class Decoder(t.nn.Module):
         attention_vector, context_vector = Attention(encoder_hidden_states, encoder_lenths, output_state)
         # attention_vector [B, seq_lenth, 1]
         # contexT_vector [B, seq_lenth, 1]
-        output_state = self.projection(t.cat([output_state, context_vector], -1))
+        output_state = self.projection(output_state + context_vector)
         output_prob = t.nn.functional.log_softmax(output_state, dim=-1)
         output_token = output_prob.topk(1)[1]
         return output_token.long().squeeze(), output_prob, hidden_state, attention_vector, context_vector
@@ -126,6 +139,7 @@ class Decoder(t.nn.Module):
         return True
 
     def beam_search_forward(self, input_token, input_hidden_state, embedding, encoder_hidden_states, encoder_lenths, context_vector):
+
         input_vector = embedding(input_token.unsqueeze(-1))
         rnn_input = t.cat([input_vector, context_vector], -1)
         rnn_input = self.merge_context_output(rnn_input)
@@ -143,7 +157,7 @@ class Decoder(t.nn.Module):
         all_seqs = []
         device = encoder_hidden_states.device
         hidden_size = encoder_hidden_states.size()[-1]
-        context_vector = t.zeros((1, hidden_size)).to(device)
+        context_vector = t.zeros((1, 1, hidden_size)).to(device)
         for seq in top_seqs:
             seq_score = seq[1]
             seq_id = seq[0]
@@ -154,7 +168,7 @@ class Decoder(t.nn.Module):
             input_hidden_state = decoder_init_state.transpose(0, 1)
             for i_id in seq_id:
                 _word, _prob, input_hidden_state, attention_vector, context_vector = \
-                    self.beam_search_forward(t.Tensor([i_id]).long(), input_hidden_state, embedding, encoder_hidden_states, encoder_lenths, context_vector)
+                    self.beam_search_forward(t.Tensor([i_id]).long().to(device), input_hidden_state, embedding, encoder_hidden_states, encoder_lenths, context_vector)
             for i in range(self.beam_size):
                 temp = seq_id
                 word = _word[0][0][i].item()
@@ -172,26 +186,15 @@ class Decoder(t.nn.Module):
         # START
         top_seqs = [[[self.sos_id], 1.0]]
         # loop
+
         for _ in range(self.max_lenth):
             top_seqs, all_done = self.beam_search_step(decoder_init_state, top_seqs, embedding, encoder_hidden_states, encoder_lenths)
             if all_done:
                 break
-        top_seq = sorted(top_seqs, key=lambda seq: seq[1], reverse=True)
-        return top_seq
-
-    # def get_beam_seq(self, decoder_init_state,embedding):
-    #     top_seqs = self.beam_search(decoder_init_state,embedding)
-    #     word_index = []
-    #     word_prob = []
-    #     ipdb.set_trace()
-    #     for seq in top_seqs:
-    #         for word in seq[0]:
-    #             word_index.append(word[0])
-    #             word_prob.append(word[1])
-    #             if word_index == self.eos_id:
-    #                 break
-    #     return word_index, self.reduce_mul(word_prob)
-
+        top_seq = sorted(top_seqs, key=lambda seq: seq[1], reverse=True)[0]
+        seq = top_seq[0]
+        prob = top_seq[1]
+        return seq, prob
 
 
 

@@ -20,7 +20,8 @@ class EncoderDecoder(t.nn.Module):
         self.teacher_forcing_ratio = 1
         self.embedding = t.nn.Embedding(self.vocab_size,
                                         self.embedding_size,
-                                        padding_idx=self.padding_idx)
+                                        padding_idx=self.padding_idx,
+                                        _weight=matrix)
 
         self.encoder = Encoder(cell_type='GRU',
                                input_size=self.embedding_size,
@@ -41,12 +42,18 @@ class EncoderDecoder(t.nn.Module):
         self.decoder.teacher_forcing_ratio = self.teacher_forcing_ratio
         net = self.embedding(inputs)
         hidden_states, final_states = self.encoder(net, lenths)
-        output_token_list, output_hidden_state_list, output_seq_lenth, attention_matrix = self.decoder(true_seq=true_seq,
+        output_token_list, output_hidden_state_list, sample_token_list, sample_hidden_state_list = self.decoder(true_seq=true_seq,
                                                                                      encoder_hidden_states=hidden_states,
                                                                                      decoder_init_state=final_states,
                                                                                      embedding=self.embedding,
                                                                                      encoder_lenths=lenths)
-        return output_token_list, output_hidden_state_list, output_seq_lenth, attention_matrix
+        return output_token_list, output_hidden_state_list, sample_token_list, sample_hidden_state_list
+        # output_token_list, output_hidden_state_list, output_seq_lenth, attention_matrix = self.decoder(true_seq=true_seq,
+        #                                                                              encoder_hidden_states=hidden_states,
+        #                                                                              decoder_init_state=final_states,
+        #                                                                              embedding=self.embedding,
+        #                                                                              encoder_lenths=lenths)
+        # return output_token_list, output_hidden_state_list, output_seq_lenth, attention_matrix
 
     def beam_forward(self, inputs, lenths):
         net = self.embedding(inputs)

@@ -5,7 +5,7 @@ import fire
 from Predictor.Utils import Vocab
 import pickle as pk
 from DataSets import DataSet, own_collate_fn
-from Predictor.Utils.loss import masked_cross_entropy
+from Predictor.Utils.loss import masked_cross_entropy, mixed_loss
 from Predictor.Utils import batch_scorer
 from Trainner import Trainner
 from Predictor import Models
@@ -16,7 +16,7 @@ import ipdb
 def train(**kwargs):
     args = Config()
     args.parse(kwargs)
-    loss_func = masked_cross_entropy
+    loss_func = mixed_loss
     score_func = batch_scorer
     train_set = DataSet(args.processed_folder+'train/')
     dev_set = DataSet(args.processed_folder+'dev/')
@@ -55,7 +55,7 @@ def test(**kwargs):
     args.eos_id = eos_id
     args.sos_id = sos_id
     model = getattr(Models, args.model_name)(matrix=vocab.matrix, args=args)
-    load = _load('test_savedmodel/2018_08_22_02_50_53_0.29168840973798804', model)
+    load = _load('ckpt/20180823_225439/saved_models/2018_08_23_23_14_12T0.2704485616892103', model)
     model = load['model']
     model.to('cuda')
     #TODO complete load_state_dict and predict

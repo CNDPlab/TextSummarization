@@ -21,6 +21,7 @@ class Config(object):
     dropout = 0
     init_tf_ratio = -100
     tf_ratio_decay_ratio = 0.9999
+    mixed_loss_ratio = 0.5
     close_teacher_forcing_step = 50000
     num_layers = 1
     num_model_tosave = 3

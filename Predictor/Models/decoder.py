@@ -64,16 +64,20 @@ class Decoder(t.nn.Module):
         context_vector = t.zeros((batch_size, 1, hidden_size)).to(device)
         output_token_list = []
         output_prob_list = []
+        sample_token_list = []
+        sample_prob_list = []
         output_attention_list = []
-        ended_seq_id = []
-        output_seq_lenth = {i: true_seq.size()[-1] for i in range(batch_size)}
+        # ended_seq_id = []
+        # sample_ended_seq_id = []
+        # output_seq_lenth = {i: true_seq.size()[-1] for i in range(batch_size)}
+        # sample_seq_lenth = {i: true_seq.size()[-1] for i in range(batch_size)}
         for step in range(true_seq.size()[-1]):
             use_teacher_forcing = random.random() < self.teacher_forcing_ratio
             if use_teacher_forcing:
                 token = true_seq[:, step]
             else:
                 pass
-            token, prob, hidden_state, attention_vector, context_vector = self.forward_step(token,
+            token, prob, sampel_token, sample_prob, hidden_state, attention_vector, context_vector = self.forward_step(token,
                                                                                             hidden_state,
                                                                                             embedding,
                                                                                             encoder_hidden_states,
@@ -87,24 +91,30 @@ class Decoder(t.nn.Module):
             if step != true_seq.size()[-1]-1:
                 output_token_list.append(token)
                 output_prob_list.append(prob)
-                output_attention_list.append(attention_vector)
-                for i, v in enumerate(token):
-                    if (i not in ended_seq_id) & (v.item() == self.eos_id):
-                        output_seq_lenth[i] = step
-                        ended_seq_id.append(i)
-                # if len(ended_seq_id) == batch_size:
-                #     break
+                sample_token_list.append(sampel_token)
+                sample_prob_list.append(sample_prob)
+                # output_attention_list.append(attention_vector)
+                # for i, v in enumerate(token):
+                #     if (i not in ended_seq_id) & (v.item() == self.eos_id):
+                #         output_seq_lenth[i] = step
+                #         ended_seq_id.append(i)
+
             else:
                 output_token_list.append(token)
                 output_prob_list.append(prob)
-                output_attention_list.append(attention_vector)
-                for i, v in enumerate(token):
-                    if i not in ended_seq_id:
-                        output_seq_lenth[i] = step
-                        ended_seq_id.append(i)
+                sample_token_list.append(sampel_token)
+                sample_prob_list.append(sample_prob)
+                # output_attention_list.append(attention_vector)
+                # for i, v in enumerate(token):
+                #     if i not in ended_seq_id:
+                #         output_seq_lenth[i] = step
+                #         ended_seq_id.append(i)
 
-        output_seq_lenth = np.asarray([val for key, val in sorted(output_seq_lenth.items())])
-        return t.stack(output_token_list).transpose(0, 1), t.cat(output_prob_list, dim=1), t.from_numpy(output_seq_lenth).to(device), t.stack(output_attention_list, dim=1)
+        # output_seq_lenth = np.asarray([val for key, val in sorted(output_seq_lenth.items())])
+        #return t.stack(output_token_list).transpose(0, 1), t.cat(output_prob_list, dim=1), t.from_numpy(output_seq_lenth).to(device), t.stack(output_attention_list, dim=1)
+        return t.stack(output_token_list).transpose(0, 1), t.cat(output_prob_list, dim=1), \
+               t.stack(sample_token_list).transpose(0, 1), t.cat(sample_prob_list, dim=1)
+
 
     def forward_step(self, input_token, input_hidden_state, embedding, encoder_hidden_states, encoder_lenths, context_vector):
         """
@@ -130,7 +140,10 @@ class Decoder(t.nn.Module):
         output_state = self.projection(output_state + context_vector)
         output_prob = t.nn.functional.log_softmax(output_state, dim=-1)
         output_token = output_prob.topk(1)[1]
-        return output_token.long().squeeze(), output_prob, hidden_state, attention_vector, context_vector
+        sample_output_prob = t.nn.functional.softmax(output_state, dim=-1)
+        ipdb.set_trace()
+        sample_output_token = t.multinomial(sample_output_prob.squeeze(1),1)
+        return output_token.long().squeeze(), output_prob, sample_output_token.long().squeeze(), sample_output_prob, hidden_state, attention_vector, context_vector
 
     def check_all_done(self, seqs):
         for seq in seqs:

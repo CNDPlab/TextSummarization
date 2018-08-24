@@ -3,6 +3,7 @@ import time
 import os
 import random
 from tensorboardX import SummaryWriter
+from Predictor.Utils.loss import masked_cross_entropy, mixed_loss
 import numpy as np
 from tqdm import tqdm
 import shutil
@@ -83,8 +84,11 @@ class Trainner(object):
 
     def _data2loss(self, model, loss_func, data, score_func=None):
         context, title, context_lenths, title_lenths = [i.to(self.device) for i in data]
-        token_id, prob_vector, token_lenth, attention_matrix = model(context, context_lenths, title)
-        loss = loss_func(prob_vector, title, token_lenth, title_lenths)
+        token_id, prob_vector, sample_token_id, sample_prob_vector = model(context, context_lenths, title)
+        if loss_func == masked_cross_entropy:
+            loss = loss_func(inputs = prob_vector, sample_inputs = sample_prob_vector, targets = title, target_lenth = title_lenths)
+        if loss_func == mixed_loss:
+            loss = loss_func(token_id, prob_vector, sample_token_id, sample_prob_vector, title, title_lenths)
         if score_func is None:
             return loss
         else:

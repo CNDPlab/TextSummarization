@@ -73,6 +73,7 @@ class Trainner(object):
     def _train_step(self, model, optimizer, loss_func, data):
         optimizer.zero_grad()
         train_loss = self._data2loss(model, loss_func, data)
+        #train_loss.requires_grad = True
         train_loss.backward()
         t.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=5.0)
         optimizer.step()
@@ -85,10 +86,8 @@ class Trainner(object):
     def _data2loss(self, model, loss_func, data, score_func=None):
         context, title, context_lenths, title_lenths = [i.to(self.device) for i in data]
         token_id, prob_vector, sample_token_id, sample_prob_vector = model(context, context_lenths, title)
-        if loss_func == masked_cross_entropy:
-            loss = loss_func(inputs = prob_vector, sample_inputs = sample_prob_vector, targets = title, target_lenth = title_lenths)
-        if loss_func == mixed_loss:
-            loss = loss_func(token_id, prob_vector, sample_token_id, sample_prob_vector, title, title_lenths)
+        loss = loss_func(inputs = prob_vector, targets = title, target_lenth = title_lenths)
+        #loss = loss_func(token_id, prob_vector, sample_token_id, sample_prob_vector, title, title_lenths)
         if score_func is None:
             return loss
         else:

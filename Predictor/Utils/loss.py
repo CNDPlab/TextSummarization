@@ -3,10 +3,11 @@ from configs import Config
 import torch as t
 from Predictor.Utils import lenth2mask
 from Predictor.Utils import batch_scorer
+import numpy as np
 import ipdb
 
 
-def masked_cross_entropy(inputs, targets, lenths, target_lenth):
+def masked_cross_entropy(inputs, targets, target_lenth):
     """
     :param inputs:  [B, imaxlenth, vocabulary_size] float
     :param targets:  [B, tmaxlenth]
@@ -57,10 +58,11 @@ def mixed_loss(id, inputs, sample_id, sample_inputs, targets, target_lenth):
     sample_losses = sample_losses * target_mask
     # losses [B, seqlenth]
     sample_losses = - (sample_losses.sum(-1)/target_mask.sum(-1)).sum() / batch_size
-
-    output_rouge = batch_scorer(id, targets, args.eos_id)
-    sample_rouge = batch_scorer(sample_id, targets, args.eos_id)
-    return args.mixed_loss_ratio * (output_rouge - sample_rouge) * sample_losses + args.mixed_loss_ratio * losses
+    output_rouge = t.from_numpy(np.array(batch_scorer(id, targets, args.eos_id)))
+    sample_rouge = t.from_numpy(np.array(batch_scorer(sample_id, targets, args.eos_id)))
+    rouge = (0.5 * (output_rouge - sample_rouge)).long().to(device)
+    mixed_losses = rouge * sample_losses.long() + (0.5 * losses).long()
+    return mixed_losses
 
 
 if __name__ == '__main__':

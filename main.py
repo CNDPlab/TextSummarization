@@ -16,7 +16,7 @@ import ipdb
 def train(**kwargs):
     args = Config()
     args.parse(kwargs)
-    loss_func = mixed_loss
+    loss_func = masked_cross_entropy
     score_func = batch_scorer
     train_set = DataSet(args.processed_folder+'train/')
     dev_set = DataSet(args.processed_folder+'dev/')
@@ -55,7 +55,7 @@ def test(**kwargs):
     args.eos_id = eos_id
     args.sos_id = sos_id
     model = getattr(Models, args.model_name)(matrix=vocab.matrix, args=args)
-    load = _load('ckpt/20180823_225439/saved_models/2018_08_23_23_14_12T0.2704485616892103', model)
+    load = _load('ckpt/20180824_012504/saved_models/2018_08_24_04_59_32T0.3013901442118726', model)
     model = load['model']
     model.to('cuda')
     #TODO complete load_state_dict and predict

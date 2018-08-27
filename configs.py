@@ -13,11 +13,13 @@ class Config(object):
     resume = False
     device = 'cuda:0'
     embedding_dim = 128
+    encoder_max_lenth = 100
     epochs = 20
     beam_size = 3
-    batch_size = 64
+    num_head = 4
+    batch_size = 32
     padding_idx = 0
-    hidden_size = 128
+    hidden_size = 64
     dropout = 0
     init_tf_ratio = -100
     tf_ratio_decay_ratio = 0.9999

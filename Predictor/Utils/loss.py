@@ -4,7 +4,7 @@ from Predictor.Utils import lenth2mask
 import ipdb
 
 
-def masked_cross_entropy(inputs, targets, lenths, target_lenth):
+def masked_cross_entropy(inputs, targets):
     """
     :param inputs:  [B, imaxlenth, vocabulary_size] float
     :param targets:  [B, tmaxlenth]

@@ -23,9 +23,13 @@ with open(args.raw_folder+'DATA/PART_I.txt') as f:
 with open(args.raw_folder+'DATA/PART_III.txt') as f:
     test_raw = f.readlines()
 
-train_df = pd.DataFrame({'score': [None for _ in range(len(train_raw[2::8]))], 'summary': [i.strip() for i in train_raw[2::8]], 'text': [i.strip() for i in train_raw[5::8]]})
+train_df = pd.DataFrame({'score': [None for _ in range(len(train_raw[2::8]))],
+                         'summary': [i.strip() for i in train_raw[2::8]],
+                         'text': [i.strip() for i in train_raw[5::8]]})
 train_df, dev_df = train_test_split(train_df, test_size=0.0005)
-test_df = pd.DataFrame({'score': [int(i.strip()[13]) for i in test_raw[1::9]], 'summary': [i.strip() for i in test_raw[3::9]], 'text': [i.strip() for i in test_raw[6::9]]})
+test_df = pd.DataFrame({'score': [int(i.strip()[13]) for i in test_raw[1::9]],
+                        'summary': [i.strip() for i in test_raw[3::9]],
+                        'text': [i.strip() for i in test_raw[6::9]]})
 test_df = test_df[test_df.score >= 3]
 
 del train_raw, test_raw
@@ -55,13 +59,11 @@ def middle_process_save(df, set):
         with ProcessPoolExecutor(10) as executor:
             result = executor.map(process_data, df.iterrows())
         nresult = []
-        for i in tqdm(result,desc='append'):
+        for i in tqdm(result, desc='append'):
             nresult.append(i)
         for res in tqdm(nresult):
             json.dump(res, writer, ensure_ascii=False)
             writer.write('\n')
-
-
 
 
 middle_process_save(dev_df, 'dev')
@@ -107,6 +109,7 @@ if os.path.exists(args.processed_folder):
     shutil.rmtree(args.processed_folder)
 os.mkdir(args.processed_folder)
 
+
 def convert_save(set='test'):
     os.mkdir(args.processed_folder+set+'/')
     with open(args.middle_folder+set+'.json') as reader:
@@ -117,6 +120,8 @@ def convert_save(set='test'):
             with open(args.processed_folder+set+'/' + str(index)+'.json', 'w') as writer:
                 json.dump(nline, writer, ensure_ascii=False)
 
+
 convert_save('dev')
 convert_save('test')
 convert_save('train')
+

@@ -1,7 +1,6 @@
 import torch as t
 import time
 import os
-import random
 from tensorboardX import SummaryWriter
 import numpy as np
 from tqdm import tqdm
@@ -9,7 +8,7 @@ import shutil
 import ipdb
 
 
-class Trainner(object):
+class Trainner_transformer(object):
     def __init__(self, args, vocab):
         self.args = args
         self.vocab = vocab
@@ -18,8 +17,6 @@ class Trainner(object):
         self.init_time = time.strftime('%Y%m%d_%H%M%S')
         self.device = args.device
         self.save_path = args.saved_model_root
-        self.teacher_forcing_ratio = 1
-
 
     def train(self, model, loss_func, score_func, train_loader, dev_loader, resume, exp_root=None):
         print(f'resume:{resume}')
@@ -60,7 +57,7 @@ class Trainner(object):
                 score = self._eval(model, loss_func, score_func, dev_loader)
                 if self.global_step % self.args.save_every_step == 0:
                     self._save(model, self.global_epoch, self.global_step, optimizer, score)
-            if self.global_step == 50000:
+            if self.global_step == 500:
                 self.summary_writer.add_embedding(model.embedding.weight.data, global_step=self.global_step)
 
     def _train_step(self, model, optimizer, loss_func, data):
@@ -71,20 +68,18 @@ class Trainner(object):
         optimizer.step()
 
         self.summary_writer.add_scalar('loss/train_loss', train_loss.item(), self.global_step)
-        self.summary_writer.add_scalar('teacher_forcing_ratio', model.teacher_forcing_ratio, self.global_step)
         #TODO add text writer for directly eval
         self.global_step += 1
 
     def _data2loss(self, model, loss_func, data, score_func=None, ret_words=False):
         context, title, context_lenths, title_lenths = [i.to(self.device) for i in data]
-        token_id, prob_vector, token_lenth, attention_matrix = model(context, context_lenths, title)
+        token_id, prob_vector = model(context)
         loss = loss_func(prob_vector, title, token_lenth, title_lenths)
         if score_func is None:
             if not ret_words:
                 return loss
             else:
                 return loss, token_id, title
-
         else:
             if not ret_words:
                 score = score_func(token_id, title, self.args.eos_id)
@@ -102,28 +97,28 @@ class Trainner(object):
                 eval_loss, eval_score, token_id, title = self._data2loss(model, loss_func, data, score_func, ret_words=True)
                 eval_losses.append(eval_loss.item())
                 eval_scores.append(eval_score)
+        self.write_sample_result_text(token_id, title)
         eval_scores = np.mean(eval_scores)
         eval_losses = np.mean(eval_losses)
         self.summary_writer.add_scalar('loss/eval_loss', eval_losses, self.global_step)
         self.summary_writer.add_scalar('score/eval_score', eval_scores, self.global_step)
         for i, v in model.named_parameters():
             self.summary_writer.add_histogram(i.replace('.', '/'), v.clone().cpu().data.numpy(), self.global_step)
-            self.summary_writer.add_histogram(i.replace('.', '/')+'/grad', v.grad.clone().cpu().data.numpy(), self.global_step)
+            self.summary_writer.add_histogram(i.replace('.', '/') + '/grad', v.clone().cpu().data.numpy(), self.global_step)
         model.train()
         return eval_scores
 
     def write_sample_result_text(self, token_id, title):
-        token_list = token_id.tolist()
-        title_list = title.tolist()
-        word_list = [[self.vocab.from_id_token(word) for word in i] for i in token_list]
-        title_list = [[self.vocab.from_id_token(word) for word in i] for i in title_list]
-        self.summary_writer.add_text('pre', )
-        #TODO
-
+        token_list = token_id.tolist()[0]
+        title_list = title.tolist()[0]
+        word_list = [self.vocab.from_id_token(word) for word in token_list]
+        title_list = [self.vocab.from_id_token(word) for word in title_list]
+        word_pre = ' '.join(word_list) + '\n' + ' '.joint(title_list)
+        self.summary_writer.add_text('pre', word_pre, global_step=self.global_step)
 
     def _save(self, model, epoch, step, optimizer, score):
         date_time = time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime())
-        info = date_time + 'T' + str(score)
+        info = date_time + '_' + str(score)
         path = os.path.join(self.model_root, info)
         if not os.path.exists(path):
             os.mkdir(path)
@@ -143,11 +138,11 @@ class Trainner(object):
 
     def get_latest_cpath(self):
         file_name = os.listdir(self.model_root)
-        latest = sorted(file_name, key=lambda x: x.split('T')[0], reverse=True)[0]
+        latest = sorted(file_name, key=lambda x: x.split('_')[0], reverse=True)[0]
         return os.path.join(self.model_root, latest)
 
     def select_topk_model(self, k):
         file_name = os.listdir(self.model_root)
-        remove_file = sorted(file_name, key=lambda x: x.split('T')[1], reverse=True)[k:]
+        remove_file = sorted(file_name, key=lambda x: x.split('_')[1], reverse=True)[k:]
         for i in remove_file:
             shutil.rmtree(os.path.join(self.model_root, i))

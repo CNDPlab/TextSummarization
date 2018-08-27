@@ -7,7 +7,7 @@ import pickle as pk
 from DataSets import DataSet, own_collate_fn
 from Predictor.Utils.loss import masked_cross_entropy
 from Predictor.Utils import batch_scorer
-from Trainner import Trainner
+from Trainner import Trainner, Trainner_transformer
 from Predictor import Models
 import os
 import ipdb
@@ -27,8 +27,8 @@ def train(**kwargs):
     args.eos_id = eos_id
     args.sos_id = sos_id
     model = getattr(Models, args.model_name)(matrix=vocab.matrix, args=args)
-    trainner = Trainner(args, vocab)
-    trainner.train(model, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio=args.init_tf_ratio, resume=args.resume)
+    trainner = Trainner_transformer(args, vocab)
+    trainner.train(model, loss_func, score_func, train_loader, dev_loader, resume=args.resume)
 
 
 def select_best_model(save_path):

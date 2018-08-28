@@ -79,34 +79,51 @@ class Trainner(object):
         optimizer.step()
 
         self.summary_writer.add_scalar('loss/train_loss', train_loss.item(), self.global_step)
+        #self.summary_writer.add_scalar('loss/train_report_loss', report_loss.item(), self.global_step)
         self.summary_writer.add_scalar('teacher_forcing_ratio', model.teacher_forcing_ratio, self.global_step)
         #TODO add text writer for directly eval
         self.global_step += 1
+
+    def _data2loss_rl(self, model, loss_func, data, score_func=None):
+        context, title, context_lenths, title_lenths = [i.to(self.device) for i in data]
+        token_id, prob_vector, sample_token_id, sample_prob_vector = model(context, context_lenths, title)
+        #loss = loss_func(inputs = prob_vector, targets = title, target_lenth = title_lenths)
+        loss, report_loss = loss_func(token_id, prob_vector, sample_token_id, sample_prob_vector, title, title_lenths)
+        if score_func is None:
+            return loss, report_loss
+        else:
+            score = score_func(token_id, title, self.args.eos_id)
+            return loss, score, report_loss
 
     def _data2loss(self, model, loss_func, data, score_func=None):
         context, title, context_lenths, title_lenths = [i.to(self.device) for i in data]
         token_id, prob_vector, sample_token_id, sample_prob_vector = model(context, context_lenths, title)
         loss = loss_func(inputs = prob_vector, targets = title, target_lenth = title_lenths)
-        #loss = loss_func(token_id, prob_vector, sample_token_id, sample_prob_vector, title, title_lenths)
+        #loss, report_loss = loss_func(token_id, prob_vector, sample_token_id, sample_prob_vector, title, title_lenths)
         if score_func is None:
             return loss
         else:
             score = score_func(token_id, title, self.args.eos_id)
             return loss, score
 
+
     def _eval(self, model, loss_func, score_func, dev_loader):
         eval_losses = []
+        report_losses = []
         eval_scores = []
         model.eval()
         with t.no_grad():
             for data in tqdm(dev_loader, desc='dev_step'):
                 eval_loss, eval_score = self._data2loss(model, loss_func, data, score_func)
                 eval_losses.append(eval_loss.item())
+                #report_losses.append(report_loss.item())
                 eval_scores.append(eval_score)
         eval_scores = np.mean(eval_scores)
         eval_losses = np.mean(eval_losses)
+        eval_report_losses = np.mean(report_losses)
         self.summary_writer.add_scalar('loss/eval_loss', eval_losses, self.global_step)
         self.summary_writer.add_scalar('score/eval_score', eval_scores, self.global_step)
+        #self.summary_writer.add_scalar('score/eval_report_loss', eval_report_losses, self.global_step)
         for i, v in model.named_parameters():
             self.summary_writer.add_histogram(i.replace('.', '/'), v.clone().cpu().data.numpy(), self.global_step)
         model.train()

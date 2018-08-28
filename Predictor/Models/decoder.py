@@ -53,6 +53,7 @@ class Decoder(t.nn.Module):
         hidden_state = decoder_init_state.transpose(0, 1).contiguous()
         context_vector = t.zeros((batch_size, 1, hidden_size)).to(device)
         output_token_list = []
+        output_token_list.append(token)
         output_prob_list = []
         output_attention_list = []
         ended_seq_id = []
@@ -74,7 +75,7 @@ class Decoder(t.nn.Module):
             #     ipdb.set_trace()
             #     attention_vector = attention_vector / t.sum(t.stack(output_attention_list),dim=0)
 
-            if step != true_seq.size()[-1]-1:
+            if step != true_seq.size()[-1]:
                 output_token_list.append(token)
                 output_prob_list.append(prob)
                 output_attention_list.append(attention_vector)

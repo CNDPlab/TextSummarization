@@ -6,12 +6,12 @@ import ipdb
 from collections import OrderedDict
 
 
-class Decoder(t.nn.Module):
+class Decoder_mixloss(t.nn.Module):
     """
     simple rnn decoder without attention , using teacher forcing
     """
     def __init__(self, input_size, hidden_size, max_lenth, sos_id, eos_id, vocab_size, beam_size, num_layer):
-        super(Decoder, self).__init__()
+        super(Decoder_mixloss, self).__init__()
         self.max_lenth = max_lenth
         self.vocab_size = vocab_size
         self.sos_id, self.eos_id = sos_id, eos_id
@@ -71,7 +71,7 @@ class Decoder(t.nn.Module):
         # sample_ended_seq_id = []
         # output_seq_lenth = {i: true_seq.size()[-1] for i in range(batch_size)}
         # sample_seq_lenth = {i: true_seq.size()[-1] for i in range(batch_size)}
-        for step in range(true_seq.size()[-1]):
+        for step in range((true_seq.size()[-1])-1):
             use_teacher_forcing = random.random() < self.teacher_forcing_ratio
             if use_teacher_forcing:
                 token = true_seq[:, step]

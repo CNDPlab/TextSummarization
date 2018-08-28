@@ -20,9 +20,8 @@ def masked_cross_entropy(inputs, targets, target_lenth):
     vocabulary_size = inputs.size()[-1]
 
     flat_inputs_log = inputs.contiguous().view(-1, vocabulary_size)
-    flat_targets = targets.view(-1, 1)
+    flat_targets = targets.contiguous().view(-1, 1)
     losses = t.gather(flat_inputs_log, dim=1, index=flat_targets.long()).view(*targets.size())
-
     target_mask = lenth2mask(target_lenth, tar_max_lenth).data.float()
     losses = losses * target_mask
     # losses [B, seqlenth]
@@ -38,14 +37,16 @@ def mixed_loss(id, inputs, sample_id, sample_inputs, targets, target_lenth):
     """
     args = Config()
     batch_size, inp_max_lenth, vocabulary_size = inputs.size()
+    targets = targets[:, 1:]
+    target_lenth = target_lenth - 1
+
     tar_max_lenth = targets.size()[-1]
     device = inputs.device
     vocabulary_size = inputs.size()[-1]
 
     flat_inputs_log = inputs.contiguous().view(-1, vocabulary_size)
-    flat_targets = targets.view(-1, 1)
+    flat_targets = targets.contiguous().view(-1, 1)
     losses = t.gather(flat_inputs_log, dim=1, index=flat_targets.long()).view(*targets.size())
-
     target_mask = lenth2mask(target_lenth, tar_max_lenth).data.float()
     losses = losses * target_mask
     # losses [B, seqlenth]
@@ -58,11 +59,11 @@ def mixed_loss(id, inputs, sample_id, sample_inputs, targets, target_lenth):
     sample_losses = sample_losses * target_mask
     # losses [B, seqlenth]
     sample_losses = - (sample_losses.sum(-1)/target_mask.sum(-1)).sum() / batch_size
-    output_rouge = t.from_numpy(np.array(batch_scorer(id, targets, args.eos_id)))
-    sample_rouge = t.from_numpy(np.array(batch_scorer(sample_id, targets, args.eos_id)))
-    rouge = (0.5 * (output_rouge - sample_rouge)).long().to(device)
-    mixed_losses = rouge * sample_losses.long() + (0.5 * losses).long()
-    return mixed_losses
+    output_rouge = t.from_numpy(np.array(batch_scorer(id, targets, args.eos_id))).float()
+    sample_rouge = t.from_numpy(np.array(batch_scorer(sample_id, targets, args.eos_id))).float()
+    rouge = -((output_rouge - sample_rouge)*100).to(device)
+    mixed_losses = rouge * sample_losses
+    return mixed_losses, losses
 
 
 if __name__ == '__main__':

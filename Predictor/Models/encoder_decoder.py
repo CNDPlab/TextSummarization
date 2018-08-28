@@ -1,5 +1,5 @@
 import torch as t
-from Predictor.Models import Encoder, Decoder
+from Predictor.Models import Encoder, Decoder, Decoder_mixloss
 from configs import Config
 import ipdb
 

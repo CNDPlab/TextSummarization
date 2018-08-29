@@ -12,8 +12,8 @@ import os
 from cytoolz import concatv
 import pickle as pk
 import gensim
-
-
+import re
+from Predictor.Utils.T_S.lang_conv import *
 
 
 args = Config()
@@ -45,10 +45,39 @@ if os.path.exists(args.middle_folder):
 os.mkdir(args.middle_folder)
 
 
+def is_ustr(in_str):
+    out_str = ''
+    for i in range(len(in_str)):
+        if is_uchar(in_str[i]):
+            out_str = out_str+in_str[i]
+        else:
+            pass
+    return out_str
+
+
+def is_uchar(uchar):
+    """判断一个unicode是否是汉字"""
+    if uchar >= u'\u4e00' and uchar<=u'\u9fa5':
+            return True
+    """判断一个unicode是否是数字"""
+    if uchar >= u'\u0030' and uchar<=u'\u0039':
+            return True
+    """判断一个unicode是否是英文字母"""
+    if (uchar >= u'\u0041' and uchar<=u'\u005a') or (uchar >= u'\u0061' and uchar<=u'\u007a'):
+            return True
+    if uchar in ('-', ',', '，', '。', '.', '?', ':', ';'):
+            return True
+    return False
+
+stopwords = [line.strip() for line in open('Predictor/Utils/stopwords.dat.txt', 'r', encoding='utf-8').readlines()]
+converter = Converter('zh-hans')
+
 def process_data(data):
     data = data[1]
-    data['text_char'] = ['<BOS>'] + [i for i in data.text] + ['<EOS>']
-    data['summary_char'] = ['<BOS>'] + [i for i in data.summary] + ['<EOS>']
+    data['text'] = is_ustr(converter.convert(data.text))
+    data['summary'] = is_ustr(converter.convert(data.summary))
+    data['text_char'] = ['<BOS>'] + [i for i in data.text if i not in stopwords] + ['<EOS>']
+    data['summary_char'] = ['<BOS>'] + [i for i in data.summary if i not in stopwords] + ['<EOS>']
     del data['text'], data['summary']
     line = {i: data[i] for i in data.keys()}
     return line
@@ -92,13 +121,13 @@ for i in tqdm(sentance):
     vocab.add_sentance(i)
 
 
-model = gensim.models.Word2Vec(size=args.embedding_dim, min_count=5, workers=16, sg=1)
+model = gensim.models.FastText(size=args.embedding_dim, min_count=200, workers=16)
 model.build_vocab(sentance)
 print('building vocab')
 model.train(sentance, total_examples=model.corpus_count, epochs=model.iter)
 print('saving w2v')
 
-vocab.filter_rare_word_build_vocab(5)
+vocab.filter_rare_word_build_vocab(200)
 vocab.use_pretrained(model)
 vocab.save(args.saved_vocab)
 

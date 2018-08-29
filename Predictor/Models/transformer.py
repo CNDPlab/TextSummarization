@@ -14,58 +14,79 @@ class Transformer(t.nn.Module):
         self.dropout = args.dropout
         self.num_block = 6
         self.encoder_max_lenth = args.encoder_max_lenth
-        self.decode_max_lenth = 30
+        self.decode_max_lenth = 50
         self.sos_id = args.sos_id
         self.encoder = Encoder(self.num_head, self.input_size, self.hidden_size, self.dropout, self.num_block, matrix, self.encoder_max_lenth)
-        self.decoder = Decoder(self.num_head, self.input_size, self.hidden_size, self.dropout, self.num_block, matrix)
-
-    def forward(self, inputs, if_sample=False):
-        batch_size = inputs.size()[0]
-        input_mask = inputs.ne(0).data
-        device = inputs.device
-
-        encoder_outputs = self.encoder(inputs=inputs)
-        tokens = t.Tensor([self.sos_id]*batch_size).unsqueeze(-1).long().to(device) # batch of sos_id [B, x]
-        probs = t.zeros((batch_size, 1, self.vocabulary_size))
-        for i in range(self.decode_max_lenth):
-            output_token, output_probs = self.decoder(decoder_inputs=tokens, encoder_outputs=encoder_outputs, encoder_mask=input_mask)
-            if not if_sample:
-                tokens = t.cat([tokens, output_token], -1)
-                probs = t.cat([probs, output_probs], -2)
-            else:
-                output_token = t.nn.functional.softmax(output_probs, -1).multinomial(1)
-                tokens = t.cat([tokens, output_token], -1)
-                probs = t.cat([probs, output_probs], -2)
-
-        return tokens[:, 1:], t.nn.functional.log_softmax(probs[:, 1:, :])
+        self.decoder = Decoder(self.num_head, self.input_size, self.hidden_size, self.dropout, self.num_block, matrix, self.encoder_max_lenth)
+        self.decoder.embedding.weight = self.encoder.embedding.weight
+        self.decoder.projection.weight = self.encoder.embedding.weight
 
 
-    def beam_forward(self, inputs, beam_size):
-        pass
+    def forward(self, inputs, targets):
+        targets = targets[:, :-1].contiguous()
+        input_mask = inputs.eq(0).data
+        encoder_outputs = self.encoder(inputs)
+        tokens, probs = self.decoder(decoder_inputs=targets, encoder_outputs=encoder_outputs, encoder_mask=input_mask)
+        return tokens, probs
+
+    def predict(self, inputs, beam_size):
+        input_mask = inputs.eq(0).data
+        encoder_outputs = self.encoder(inputs)
+
+        #TODO
+
+    #
+    # def forward(self, inputs, decode_lenth=None, if_sample=False):
+    #     batch_size = inputs.size()[0]
+    #     input_mask = inputs.eq(0).data
+    #     device = inputs.device
+    #
+    #     encoder_outputs = self.encoder(inputs=inputs)
+    #     tokens = t.LongTensor([self.sos_id]*batch_size).unsqueeze(-1).to(device) # batch of sos_id [B, x]
+    #     probs = t.zeros((batch_size, 1, self.vocabulary_size)).to(device)
+    #     if decode_lenth is not None:
+    #         step_cnt = decode_lenth-1
+    #     else:
+    #         step_cnt = self.decode_max_lenth
+    #     for i in range(step_cnt):
+    #         output_token, output_probs = self.decoder(decoder_inputs=tokens, encoder_outputs=encoder_outputs, encoder_mask=input_mask)
+    #         if not if_sample:
+    #             tokens = t.cat([tokens, output_token], -1)
+    #             probs = t.cat([probs, output_probs], -2)
+    #         else:
+    #             output_token = t.nn.functional.softmax(output_probs, -1).multinomial(1)
+    #             tokens = t.cat([tokens, output_token], -1)
+    #             probs = t.cat([probs, output_probs], -2)
+    #     return tokens[:, 1:], t.nn.functional.log_softmax(probs[:, 1:, :], -1)
+    #
+    #
+    # def beam_forward(self, inputs, beam_size):
+    #     pass
 
 
 class Decoder(t.nn.Module):
-    def __init__(self, num_head, input_size, hidden_size, dropout, num_block, matrix):
+    def __init__(self, num_head, input_size, hidden_size, dropout, num_block, matrix, encoder_max_lenth):
         super(Decoder, self).__init__()
         self.embedding = t.nn.Embedding(matrix.size()[0], matrix.size()[1], padding_idx=0, _weight=matrix)
-        self.position_embedding = PositionEncoding(args.encoder_max_lenth, matrix.size()[1])
+        self.position_embedding = PositionEncoding(encoder_max_lenth, matrix.size()[1])
         self.decoder_blocks = t.nn.ModuleList([
             DecoderBlock(num_head, input_size, hidden_size, dropout) for _ in range(num_block)
         ])
         self.projection = t.nn.Linear(matrix.size()[1], matrix.size()[0])
-        self.projection.weight.data = self.embedding.weight.data
+        self.projection_scale = input_size ** -0.5
 
     def get_self_attention_mask(self, inputs):
         device = inputs.device
         batch_size, seqlenth = inputs.size()
-        mask = np.tril(np.ones((batch_size, seqlenth, seqlenth)), k=0).astype('uint8')
+        #TODO fix
+        mask = np.triu(np.ones((batch_size, seqlenth, seqlenth), dtype=np.uint8), k=1)
         mask = t.from_numpy(mask).to(device)
         return mask
 
     def get_dot_attention_mask(self, inputs, encoder_mask):
         # encoder_mask B
-        inputs_mask = inputs.ne(0).data
-        dot_attention_mask = t.bmm(inputs_mask.unsqueeze(-1), encoder_mask.data.unsqueeze(-2))
+        inputs_mask = inputs.eq(0).data
+        dot_attention_mask = t.bmm(inputs_mask.unsqueeze(-1).float(), encoder_mask.data.unsqueeze(-2).float()).byte()
         return dot_attention_mask
 
     def forward(self, decoder_inputs, encoder_outputs, encoder_mask):
@@ -75,13 +96,12 @@ class Decoder(t.nn.Module):
         #encoder_outputs B, seq encoder , embedding_size
         decoder_inputs_word = self.embedding(decoder_inputs)
         decoder_inputs_posi = self.position_embedding(decoder_inputs)
-        decoder_inputs = decoder_inputs_word + decoder_inputs_posi
+        decoder_inputs_vector = decoder_inputs_word + decoder_inputs_posi
 
         for decoder_block in self.decoder_blocks:
-            decoder_inputs = decoder_block(decoder_inputs, encoder_outputs, self_attention_mask, dot_attention_mask)
-
-        probs = self.projection(decoder_inputs)[:, -1, :].unsqueeze(-2)
-        tokens = probs.topk(1)[1][:, -1]
+            decoder_inputs_vector = decoder_block(decoder_inputs_vector, encoder_outputs, self_attention_mask, dot_attention_mask)
+        probs = (self.projection(decoder_inputs_vector) * self.projection_scale)
+        tokens = probs.argmax(-1)
         return tokens, probs
 
 
@@ -93,9 +113,8 @@ class DecoderBlock(t.nn.Module):
         self.feed_forward = FeedForward(input_size, hidden_size, dropout)
 
     def forward(self, inputs, encoder_outputs, attention_mask, dot_attention_mask):
-        ipdb.set_trace()
-        net = self.self_multi_head_attention(inputs, inputs, inputs, attention_mask)
-        net = self.dot_multi_head_attention(net, encoder_outputs, encoder_outputs, dot_attention_mask)# key,value = encoder_output
+        net = self.self_multi_head_attention(inputs, inputs, attention_mask)
+        net = self.dot_multi_head_attention(net, encoder_outputs, dot_attention_mask)# key,value = encoder_output
         net = self.feed_forward(net)
         return net
 
@@ -109,8 +128,8 @@ class Encoder(t.nn.Module):
                                                for _ in range(num_block)])
 
     def get_attention_mask(self, inputs):
-        mask = inputs.ne(0).data
-        attention_mask = t.bmm(mask.unsqueeze(-1), mask.unsqueeze(-2))
+        mask = inputs.eq(0).data
+        attention_mask = t.bmm(mask.unsqueeze(-1).float(), mask.unsqueeze(-2).float()).byte()
         return attention_mask
 
     def forward(self, inputs):
@@ -122,6 +141,7 @@ class Encoder(t.nn.Module):
             net = encoder_block(net, attention_mask)
         return net
 
+
 class EncoderBlock(t.nn.Module):
     def __init__(self, num_head, input_size, hidden_size, dropout):
         super(EncoderBlock, self).__init__()
@@ -129,7 +149,7 @@ class EncoderBlock(t.nn.Module):
         self.feed_forward_net = FeedForward(input_size, hidden_size, dropout)
 
     def forward(self, inputs, attention_mask):
-        attention_net = self.multi_head_attention(inputs, inputs, inputs, attention_mask)
+        attention_net = self.multi_head_attention(inputs, inputs, attention_mask)
         feed_forward_net = self.feed_forward_net(attention_net)
         return feed_forward_net
 
@@ -144,10 +164,10 @@ class MultiHeadAttentionBlock(t.nn.Module):
         ]))
         self.layer_normalization = LayerNormalization(input_size)
 
-    def forward(self, query, key, value, attention_mask):
-        net = self.multi_head_attention(query, key, value, attention_mask)
+    def forward(self, query, key, attention_mask):
+        net, attention_matrix = self.multi_head_attention(query, key, attention_mask)
         net = self.projection(net)
-        net += query
+        net = net + query
         net = self.layer_normalization(net)
         return net
 
@@ -158,29 +178,33 @@ class MultiHeadAttention(t.nn.Module):
         self.hidden_size = hidden_size
         self.num_head = num_head
         self.drop = t.nn.Dropout(dropout)
-        self.key = t.nn.Linear(input_size, hidden_size, bias=False)
-        self.query = t.nn.Linear(input_size, hidden_size, bias=False)
-        self.value = t.nn.Linear(input_size, hidden_size, bias=False)
+        #TODO check
+        self.reshape_key = t.nn.Linear(input_size, hidden_size * num_head, bias=False)
+        self.reshape_query = t.nn.Linear(input_size, hidden_size * num_head, bias=False)
         self.self_attention = SelfAttention(hidden_size, dropout)
-        t.nn.init.xavier_normal_(self.key.weight)
-        t.nn.init.xavier_normal_(self.query.weight)
-        t.nn.init.xavier_normal_(self.value.weight)
+        t.nn.init.xavier_normal_(self.reshape_key.weight)
+        t.nn.init.xavier_normal_(self.reshape_query.weight)
 
-    def forward(self, query, key, value, attention_mask):
+    def forward(self, query, key, attention_mask):
+        #TODO check
         # B, seqlenth, H
-        batch_size = key.size()[0]
-        key_ = self.drop(self.key(key))
-        query_ = self.drop(self.query(query))
-        value_ = self.drop(self.value(value))
-        key_ = key_.repeat(self.num_head, 1, 1) # B*num_head, seqlenth, H
-        query_ = query_.repeat(self.num_head, 1, 1)
-        value_ = value_.repeat(self.num_head, 1, 1)
+        batch_size, key_lenth, _ = key.size()
+        batch_size, query_lenth, _ = query.size()
+
+        key_ = self.reshape_key(key).view(batch_size, key_lenth, self.num_head, self.hidden_size)
+        query_ = self.reshape_query(query).view(batch_size, query_lenth, self.num_head, self.hidden_size)
+
+        key_ = key_.permute(2, 0, 1, 3).contiguous().view(-1, key_lenth, self.hidden_size)
+        query_ = query_.permute(2, 0, 1, 3).contiguous().view(-1, query_lenth, self.hidden_size)
+        key_ = self.drop(key_)
+        query_ = self.drop(query_)
+
         attention_mask = attention_mask.repeat(self.num_head, 1, 1)
-        output, attention_matrix = self.self_attention(query_, key_, value_, attention_mask)
-        # B*num_head, seqlenth, H
-        output = t.cat(output.split(batch_size, 0), -1)
-        # B seqlenth, H*num_head
-        return output
+        output, attention_matrix = self.self_attention(query_, key_, attention_mask)
+        output = output.view(self.num_head, batch_size, query_lenth, self.hidden_size)
+        output = output.permute(1, 2, 0, 3).contiguous().view(batch_size, query_lenth, -1)
+        return output, attention_matrix
+
 
 class SelfAttention(t.nn.Module):
     def __init__(self, hidden_size, dropout):
@@ -188,31 +212,34 @@ class SelfAttention(t.nn.Module):
         self.C = hidden_size ** 0.5
         self.dropout = t.nn.Dropout(dropout)
 
-    def forward(self, query, key, value, attention_mask):
+    def forward(self, query, key, attention_mask):
         # B, seqlenth, H
         attention = t.bmm(query, key.transpose(1, 2)) / self.C
-        attention.data.masked_fill_(1 - attention_mask, -float('inf'))
+
+        attention = attention.masked_fill(attention_mask, -float('inf'))
         attention = t.nn.functional.softmax(attention, -1)
-        attention.masked_fill_(t.isnan(attention), 0)
+        attention = attention.masked_fill(t.isnan(attention), 0)
         attention = self.dropout(attention)
-        output = t.bmm(attention, value)
+        output = t.bmm(attention, key)
         return output, attention
 
 
 class FeedForward(t.nn.Module):
     def __init__(self, input_size, hidden_size, dropout):
         super(FeedForward, self).__init__()
-        self.linear = t.nn.Sequential(OrderedDict([
-            ('linear1', t.nn.Linear(input_size, hidden_size, bias=False)),
-            ('relu', t.nn.ReLU(True)),
-            ('drop', t.nn.Dropout(dropout)),
-            ('linear2', t.nn.Linear(hidden_size, input_size, bias=False))
-        ]))
+        self.linear1 = t.nn.Conv1d(input_size, hidden_size, 1)
+        self.linear2 = t.nn.Conv1d(hidden_size, input_size, 1)
+        self.drop = t.nn.Dropout(dropout)
+        self.relu = t.nn.ReLU()
         self.layer_normalization = LayerNormalization(input_size)
 
     def forward(self, inputs):
-        net = self.linear(inputs)
-        net += inputs
+        net = self.linear1(inputs.transpose(1, 2))
+        net = self.relu(net)
+        net = self.linear2(net)
+        net = net.transpose(1, 2)
+        net = self.drop(net)
+        net = net + inputs
         net = self.layer_normalization(net)
         return net
 
@@ -232,29 +259,27 @@ class LayerNormalization(t.nn.Module):
 
 
 class PositionEncoding(t.nn.Module):
-    def __init__(self, max_lenth, hidden_size):
+    def __init__(self, max_lenth, embedding_dim):
         super(PositionEncoding, self).__init__()
         self.max_lenth = max_lenth
-        self.hidden_size = hidden_size
+        self.embedding_dim = embedding_dim
         self.position_encoding = t.nn.Embedding(max_lenth, hidden_size, padding_idx=0)
         self.init()
 
     def init(self):
-        position_enc = np.array([[pos / np.power(10000, 2 * (j // 2)/self.hidden_size) for j in range(self.hidden_size)] if pos != 0
-                                 else np.zeros(self.hidden_size) for pos in range(self.max_lenth+1)])
+        position_enc = np.array([[pos / np.power(10000, 2 * (j // 2)/self.embedding_dim) for j in range(self.embedding_dim)] if pos != 0
+                                 else np.zeros(self.embedding_dim) for pos in range(self.max_lenth+1)])
         position_enc[1:, 0::2] = np.sin(position_enc[1:, 0::2])  # dim 2i
         position_enc[1:, 1::2] = np.cos(position_enc[1:, 1::2])  # dim 2i+1
         self.position_encoding.weight.data = t.from_numpy(position_enc).float()
         self.position_encoding.weight.requires_grad = False
 
     def token2position(self, inputs):
-
         device = inputs.device
         batch_size, seq_lenth = inputs.size()
-        input_mask = inputs.ne(0).data.long()
-        positions = t.range(1, seq_lenth).repeat(batch_size).view(batch_size, seq_lenth).long()
-        positions *= input_mask
-        positions.to(device)
+        input_mask = inputs.data.eq(0).long()
+        positions = t.range(1, seq_lenth).repeat(batch_size).view(batch_size, seq_lenth).long().to(device)
+        positions = positions * input_mask
         return positions
 
     def forward(self, inputs):
@@ -275,3 +300,5 @@ if __name__ == '__main__':
     transformer = Transformer(args, matrix)
 #    output = transformer(inputs)
     output2 = transformer(inputs, True)
+
+t

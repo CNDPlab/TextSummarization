@@ -25,7 +25,7 @@ def softmax_mask(corelation_vector, encoder_lenths):
     seqlenth = corelation_vector.size()[-2]
     mask = lenth2mask(encoder_lenths, seqlenth)
     mask = 1e-20 * (mask - 1).float()
-    attention_vector =  t.nn.functional.softmax(corelation_vector.squeeze(-1) + mask, dim=-1)
+    attention_vector = t.nn.functional.softmax(corelation_vector.squeeze(-1) + mask, dim=-1)
     return attention_vector
 
 def beam_Attention(encoder_hidden_states, encoder_lenths, step_hidden_state):

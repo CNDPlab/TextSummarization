@@ -10,12 +10,12 @@ import json
 import shutil
 import os
 from cytoolz import concatv
+import time
 import pickle as pk
 import gensim
-import re
 from Predictor.Utils.T_S.lang_conv import *
 
-
+start = time.time()
 args = Config()
 
 with open(args.raw_folder+'DATA/PART_I.txt') as f:
@@ -125,7 +125,6 @@ model = gensim.models.FastText(size=args.embedding_dim, min_count=200, workers=1
 model.build_vocab(sentance)
 print('building vocab')
 model.train(sentance, total_examples=model.corpus_count, epochs=model.iter)
-print('saving w2v')
 
 vocab.filter_rare_word_build_vocab(200)
 vocab.use_pretrained(model)
@@ -153,4 +152,5 @@ def convert_save(set='test'):
 convert_save('dev')
 convert_save('test')
 convert_save('train')
-
+end = time.time()
+print(f'use {end-start}s')

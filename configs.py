@@ -15,7 +15,7 @@ class Config(object):
     exp_root = None
     embedding_dim = 256
     encoder_max_lenth = 500
-    epochs = 20
+    epochs = 50
     beam_size = 10
     num_head = 8
     batch_size = 192

@@ -30,10 +30,21 @@ class Transformer(t.nn.Module):
         return tokens, probs
 
     def predict(self, inputs, beam_size):
+        #Beam Search
         input_mask = inputs.eq(0).data
+        batch_size = inputs.size()[0]
+        device = inputs.device
         encoder_outputs = self.encoder(inputs)
+        init_token = t.nn.Tensor([self.sos_id]*batch_size).unsqueeze(-1).to(device)
 
-        #TODO
+
+        for step in range(self.decode_max_lenth):
+            step_token, step_prob = self.decoder(decoder_inputs=init_token, encoder_outputs=encoder_outputs, encoder_mask=input_mask)
+
+
+    def beam_step(self):
+        pass
+
 
     #
     # def forward(self, inputs, decode_lenth=None, if_sample=False):
@@ -263,7 +274,7 @@ class PositionEncoding(t.nn.Module):
         super(PositionEncoding, self).__init__()
         self.max_lenth = max_lenth
         self.embedding_dim = embedding_dim
-        self.position_encoding = t.nn.Embedding(max_lenth, hidden_size, padding_idx=0)
+        self.position_encoding = t.nn.Embedding(max_lenth, embedding_dim, padding_idx=0)
         self.init()
 
     def init(self):

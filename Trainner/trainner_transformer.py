@@ -8,6 +8,40 @@ import shutil
 import ipdb
 
 
+class ScheduledOptim(object):
+    '''A simple wrapper class for learning rate scheduling'''
+
+    def __init__(self, optimizer, d_model, n_warmup_steps, n_current_steps):
+        self._optimizer = optimizer
+        self.n_warmup_steps = n_warmup_steps
+        self.n_current_steps = n_current_steps
+        self.init_lr = np.power(d_model, -0.5)
+        self.current_lr = 0
+
+    def step_and_update_lr(self):
+        "Step with the inner optimizer"
+        self._update_learning_rate()
+        self._optimizer.step()
+
+    def zero_grad(self):
+        "Zero out the gradients by the inner optimizer"
+        self._optimizer.zero_grad()
+
+    def _get_lr_scale(self):
+        return np.min([
+            np.power(self.n_current_steps, -0.5),
+            np.power(self.n_warmup_steps, -1.5) * self.n_current_steps])
+
+    def _update_learning_rate(self):
+        ''' Learning rate scheduling per step '''
+
+        self.n_current_steps += 1
+        lr = self.init_lr * self._get_lr_scale()
+        self.current_lr = lr
+        for param_group in self._optimizer.param_groups:
+            param_group['lr'] = lr
+
+
 class Trainner_transformer(object):
     def __init__(self, args, vocab):
         self.args = args
@@ -33,12 +67,13 @@ class Trainner_transformer(object):
             os.mkdir(self.model_root)
         print(f'exp_root{self.exp_root}')
         model.to(self.device)
-        optimizer = t.optim.Adam([i for i in model.parameters() if i.requires_grad==True])
+        optimizer = t.optim.Adam([i for i in model.parameters() if i.requires_grad == True])
+        optim = ScheduledOptim(optimizer, self.args.embedding_dim, 4000, n_current_steps=self.global_step)
         if resume:
             loaded = self._load(self.get_best_cpath(), model)
             self.global_step = loaded['step']
             self.global_epoch = loaded['epoch']
-            optimizer = loaded['optimizer']
+            optim = loaded['optim']
             model = loaded['model']
             print(self.global_step, self.global_epoch)
         self.summary_writer = SummaryWriter(self.tensorboard_root)
@@ -46,28 +81,29 @@ class Trainner_transformer(object):
         print(f'tensorboard --logdir {self.tensorboard_root}')
 
         for epoch in range(self.args.epochs):
-            self._train_epoch(model, optimizer, loss_func, score_func, train_loader, dev_loader)
+            self._train_epoch(model, optim, loss_func, score_func, train_loader, dev_loader)
             self.global_epoch += 1
             self.select_topk_model(self.args.num_model_tosave)
         self.summary_writer.close()
         print(f'DONE')
 
-    def _train_epoch(self, model, optimizer, loss_func, score_func, train_loader, dev_loader):
+    def _train_epoch(self, model, optim, loss_func, score_func, train_loader, dev_loader):
         for data in tqdm(train_loader, desc='train step'):
-            self._train_step(model, optimizer, loss_func, data)
+            self._train_step(model, optim, loss_func, data)
 
             if self.global_step % self.args.eval_every_step == 0:
                 score = self._eval(model, loss_func, score_func, dev_loader)
                 if self.global_step % self.args.save_every_step == 0:
-                    self._save(model, self.global_epoch, self.global_step, optimizer, score)
+                    self._save(model, self.global_epoch, self.global_step, optim, score)
 
-    def _train_step(self, model, optimizer, loss_func, data):
-        optimizer.zero_grad()
+    def _train_step(self, model, optim, loss_func, data):
+        optim.zero_grad()
         train_loss = self._data2loss(model, loss_func, data)
         train_loss.backward()
         t.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=5.0)
-        optimizer.step()
+        optim.step_and_update_lr()
         self.summary_writer.add_scalar('loss/train_loss', train_loss.item(), self.global_step)
+        self.summary_writer.add_scalar('lr', optim.current_lr, self.global_step)
         self.global_step += 1
 
     def _data2loss(self, model, loss_func, data, score_func=None, ret_words=False):
@@ -114,7 +150,7 @@ class Trainner_transformer(object):
         word_pre = ' '.join(word_list) + '---' + ' '.join(title_list)
         self.summary_writer.add_text('pre', word_pre, global_step=self.global_step)
 
-    def _save(self, model, epoch, step, optimizer, score):
+    def _save(self, model, epoch, step, optim, score):
         date_time = time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime())
         info = date_time + 'T' + str(score)
         path = os.path.join(self.model_root, info)
@@ -122,7 +158,7 @@ class Trainner_transformer(object):
             os.mkdir(path)
         t.save({'epoch': epoch,
                 'step': step,
-                'optimizer': optimizer
+                'optim': optim
                 }, os.path.join(path, 'trainer_state'))
         t.save(model.state_dict(), os.path.join(path, 'model'))
 
@@ -131,7 +167,7 @@ class Trainner_transformer(object):
         model.load_state_dict(t.load(os.path.join(path, 'model')))
         return {'epoch': resume_checkpoint['epoch'],
                 'step': resume_checkpoint['step'],
-                'optimizer': resume_checkpoint['optimizer'],
+                'optim': resume_checkpoint['optim'],
                 'model': model}
 
     def get_best_cpath(self):

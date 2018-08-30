@@ -12,7 +12,7 @@ class Config(object):
     model_name = 'EncoderDecoder'
     resume = False
     device = 'cuda:0'
-    embedding_dim = 128
+    embedding_dim = 256
     epochs = 20
     beam_size = 3
     batch_size = 64

@@ -10,12 +10,12 @@ import json
 import shutil
 import os
 from cytoolz import concatv
+import time
 import pickle as pk
 import gensim
 
 
-
-
+start = time.time()
 args = Config()
 
 with open(args.raw_folder+'DATA/PART_I.txt') as f:
@@ -23,9 +23,13 @@ with open(args.raw_folder+'DATA/PART_I.txt') as f:
 with open(args.raw_folder+'DATA/PART_III.txt') as f:
     test_raw = f.readlines()
 
-train_df = pd.DataFrame({'score': [None for _ in range(len(train_raw[2::8]))], 'summary': [i.strip() for i in train_raw[2::8]], 'text': [i.strip() for i in train_raw[5::8]]})
+train_df = pd.DataFrame({'score': [None for _ in range(len(train_raw[2::8]))],
+                         'summary': [i.strip() for i in train_raw[2::8]],
+                         'text': [i.strip() for i in train_raw[5::8]]})
 train_df, dev_df = train_test_split(train_df, test_size=0.0005)
-test_df = pd.DataFrame({'score': [int(i.strip()[13]) for i in test_raw[1::9]], 'summary': [i.strip() for i in test_raw[3::9]], 'text': [i.strip() for i in test_raw[6::9]]})
+test_df = pd.DataFrame({'score': [int(i.strip()[13]) for i in test_raw[1::9]],
+                        'summary': [i.strip() for i in test_raw[3::9]],
+                        'text': [i.strip() for i in test_raw[6::9]]})
 test_df = test_df[test_df.score >= 3]
 
 del train_raw, test_raw
@@ -41,8 +45,35 @@ if os.path.exists(args.middle_folder):
 os.mkdir(args.middle_folder)
 
 
+def is_ustr(in_str):
+    out_str = ''
+    for i in range(len(in_str)):
+        if is_uchar(in_str[i]):
+            out_str = out_str+in_str[i]
+        else:
+            pass
+    return out_str
+
+
+def is_uchar(uchar):
+    """判断一个unicode是否是汉字"""
+    if uchar >= u'\u4e00' and uchar<=u'\u9fa5':
+            return True
+    """判断一个unicode是否是数字"""
+    if uchar >= u'\u0030' and uchar<=u'\u0039':
+            return True
+    """判断一个unicode是否是英文字母"""
+    if (uchar >= u'\u0041' and uchar<=u'\u005a') or (uchar >= u'\u0061' and uchar<=u'\u007a'):
+            return True
+    if uchar in ('-', ',', '，', '。', '.', '?', ':', ';'):
+            return True
+    return False
+
+
 def process_data(data):
     data = data[1]
+    data['text'] = is_ustr(data.text)
+    data['summary'] = is_ustr(data.summary)
     data['text_char'] = ['<BOS>'] + [i for i in data.text] + ['<EOS>']
     data['summary_char'] = ['<BOS>'] + [i for i in data.summary] + ['<EOS>']
     del data['text'], data['summary']
@@ -55,13 +86,11 @@ def middle_process_save(df, set):
         with ProcessPoolExecutor(10) as executor:
             result = executor.map(process_data, df.iterrows())
         nresult = []
-        for i in tqdm(result,desc='append'):
+        for i in tqdm(result, desc='append'):
             nresult.append(i)
         for res in tqdm(nresult):
             json.dump(res, writer, ensure_ascii=False)
             writer.write('\n')
-
-
 
 
 middle_process_save(dev_df, 'dev')
@@ -90,13 +119,12 @@ for i in tqdm(sentance):
     vocab.add_sentance(i)
 
 
-model = gensim.models.Word2Vec(size=args.embedding_dim, min_count=5, workers=16, sg=1)
+model = gensim.models.FastText(size=args.embedding_dim, min_count=200, workers=16)
 model.build_vocab(sentance)
 print('building vocab')
 model.train(sentance, total_examples=model.corpus_count, epochs=model.iter)
-print('saving w2v')
 
-vocab.filter_rare_word_build_vocab(5)
+vocab.filter_rare_word_build_vocab(200)
 vocab.use_pretrained(model)
 vocab.save(args.saved_vocab)
 
@@ -106,6 +134,7 @@ vocab = pk.load(open(args.saved_vocab, 'rb'))
 if os.path.exists(args.processed_folder):
     shutil.rmtree(args.processed_folder)
 os.mkdir(args.processed_folder)
+
 
 def convert_save(set='test'):
     os.mkdir(args.processed_folder+set+'/')
@@ -117,6 +146,9 @@ def convert_save(set='test'):
             with open(args.processed_folder+set+'/' + str(index)+'.json', 'w') as writer:
                 json.dump(nline, writer, ensure_ascii=False)
 
+
 convert_save('dev')
 convert_save('test')
 convert_save('train')
+end = time.time()
+print(f'use {end-start}s')

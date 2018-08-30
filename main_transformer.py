@@ -5,7 +5,7 @@ import fire
 from Predictor.Utils import Vocab
 import pickle as pk
 from DataSets import DataSet, own_collate_fn
-from Predictor.Utils.loss import masked_cross_entropy, mixed_loss
+from Predictor.Utils.loss import loss_function
 from Predictor.Utils import batch_scorer
 from Trainner import Trainner, Trainner_transformer
 from Predictor import Models
@@ -13,10 +13,11 @@ import os
 import ipdb
 
 
+
 def train(**kwargs):
     args = Config()
     args.parse(kwargs)
-    loss_func = masked_cross_entropy
+    loss_func = loss_function
     score_func = batch_scorer
     train_set = DataSet(args.processed_folder+'train/')
     dev_set = DataSet(args.processed_folder+'dev/')
@@ -28,7 +29,7 @@ def train(**kwargs):
     args.sos_id = sos_id
     model = getattr(Models, args.model_name)(matrix=vocab.matrix, args=args)
     trainner = Trainner_transformer(args, vocab)
-    trainner.train(model, loss_func, score_func, train_loader, dev_loader, resume=args.resume)
+    trainner.train(model, loss_func, score_func, train_loader, dev_loader, resume=args.resume, exp_root=args.exp_root)
 
 
 def select_best_model(save_path):
@@ -55,7 +56,7 @@ def test(**kwargs):
     args.eos_id = eos_id
     args.sos_id = sos_id
     model = getattr(Models, args.model_name)(matrix=vocab.matrix, args=args)
-    load = _load('ckpt/20180829_043027/saved_models/2018_08_29_05_20_44T0.24485905526743618', model)
+    load = _load('ckpt/saved_models/2018_08_20_02_12_38_0.2602508540088274', model)
     model = load['model']
     model.to('cuda')
     #TODO complete load_state_dict and predict
@@ -63,17 +64,14 @@ def test(**kwargs):
     with t.no_grad():
         for data in test_loader:
             context, title, context_lenths, title_lenths = [i.to('cuda') for i in data]
-            #token_id, prob_vector, token_lenth, attention_matrix = model.beam_forward(context, context_lenths)
-            token_id = model.beam_forward(context, context_lenths)
-            #score = batch_scorer(token_id.tolist(), title.tolist(), args.eos_id)
-            context_word = [''.join([vocab.from_id_token(id.item()) for id in sample]) for sample in context]
-            words = [''.join([vocab.from_id_token(id) for id in sample]) for sample in token_id]
-            title_words = [''.join([vocab.from_id_token(id.item()) for id in sample]) for sample in title]
+            token_id, prob_vector, token_lenth, attention_matrix = model(context, context_lenths, title)
+            score = batch_scorer(token_id.tolist(), title.tolist(), args.eos_id)
+            context_word = [[vocab.from_id_token(id.item()) for id in sample] for sample in context]
+            words = [[vocab.from_id_token(id.item()) for id in sample] for sample in token_id]
+            title_words = [[vocab.from_id_token(id.item()) for id in sample] for sample in title]
             for i in zip(context_word, words, title_words):
                 a = input('next')
-                print(f'context:{i[0]}\n,pre:{i[1]},\n tru:{i[2]}')
-                
-
+                print(f'context:{i[0]},pre:{i[1]}, tru:{i[2]}, score:{score}')
 
 
     # while True:
@@ -94,5 +92,4 @@ def test(**kwargs):
 
 if __name__ == '__main__':
     fire.Fire()
-
 

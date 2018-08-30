@@ -23,12 +23,13 @@ def batch_scorer(list_pred_token_list, list_answer_token_list, eos_id):
         list_answer_token_list = list_answer_token_list.data.cpu().numpy()
     scores = []
     for i in zip(list_pred_token_list, list_answer_token_list):
-        precision, recall, f_score = rouge.rouge_l([cutting_mask(i[0], eos_id)], [cutting_mask(i[1], eos_id)])
+
+        precision, recall, f_score = rouge.rouge_l([cutting_mask(i[0], eos_id)], [cutting_mask(i[1][1:], eos_id)])
         scores.append(f_score)
     return np.mean(scores)
 
 if __name__ == '__main__':
     #TODO add test case
-    input = t.Tensor([[1, 2, 3], [2, 3, 4]]).long()
-    pred = t.Tensor([[1, 2, 3], [2, 3, 4]]).long()
-    print(batch_scorer(input, pred))
+    input = t.Tensor([[2, 2, 2, 2, 2, 9]]).long()
+    pred = t.Tensor([[1, 2, 3, 9]]).long()
+    print(batch_scorer(input, pred, 9))

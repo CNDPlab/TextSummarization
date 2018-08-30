@@ -1,5 +1,4 @@
 import os
-import pyltp
 from pyltp import Segmentor, Postagger
 
 
@@ -11,6 +10,7 @@ class Seg_only(object):
     def segment(self, input_str):
         words = list(self.segmentor.segment(input_str))
         return words
+
 
 class Seg_POS(object):
     def __init__(self, seg_model_path=os.path.dirname(__file__)+'/cws.model', pos_model_path=os.path.dirname(__file__)+'/pos.model'):

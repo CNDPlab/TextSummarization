@@ -11,13 +11,11 @@ class DataSet(Dataset):
         super(DataSet, self).__init__()
         self.files = [path + i for i in os.listdir(path)]
 
-
     def __getitem__(self, item):
         line = json.load(open(self.files[item]))
         text_len = len(line['text_id'])
-        title_len = len(line['title_id'])
-        return np.array(line['text_id']), np.array(line['title_id']), text_len, title_len
-
+        title_len = len(line['summary_id'])
+        return np.array(line['text_id']), np.array(line['summary_id']), text_len, title_len
 
     def __len__(self):
         return len(self.files)
@@ -31,7 +29,7 @@ def own_collate_fn(batch):
     text_id = np.asarray(text_id).transpose().tolist()
     title_id = list(itertools.zip_longest(*title_id, fillvalue=0))
     title_id = np.asarray(title_id).transpose().tolist()
-    return t.Tensor(text_id).long(), t.Tensor(title_id).long(), t.LongTensor(text_len), t.LongTensor(title_len)
+    return t.LongTensor(text_id), t.LongTensor(title_id), t.LongTensor(text_len), t.LongTensor(title_len)
 
 # def own_collate_fn(batch):
 #     batch.sort(key=lambda x: len(x[0]), reverse=True)

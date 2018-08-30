@@ -16,7 +16,7 @@ class Vocab(object):
         self.word_counter.update(sentance)
 
     def filter_rare_word_build_vocab(self, min_count):
-        common_words = [i for i, v in self.word_counter.most_common(80000) if v >= min_count]
+        common_words = [i for i,v in list(filter(lambda x:x[1] > min_count, self.word_counter.items()))]
         print(f'filtered {len(self.word_counter)-len(common_words)} words,{len(common_words)} left')
         for index, word in enumerate(common_words):
             self.token2id[word] = index + self.offset
@@ -49,3 +49,10 @@ class Vocab(object):
 
     def save(self, path):
         pk.dump(self, open(path, 'wb'))
+
+class Vocab_collector(object):
+    def __init__(self):
+        self.name_space = []
+
+    def add_name_space(self):
+        pass

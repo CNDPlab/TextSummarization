@@ -55,7 +55,7 @@ def test(**kwargs):
     args.eos_id = eos_id
     args.sos_id = sos_id
     model = getattr(Models, args.model_name)(matrix=vocab.matrix, args=args)
-    load = _load('ckpt/20180827_220819/saved_models/2018_08_28_01_48_24T0.29286931454572085', model)
+    load = _load('ckpt/20180829_043027/saved_models/2018_08_29_05_20_44T0.24485905526743618', model)
     model = load['model']
     model.to('cuda')
     #TODO complete load_state_dict and predict

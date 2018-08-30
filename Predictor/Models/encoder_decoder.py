@@ -29,7 +29,7 @@ class EncoderDecoder(t.nn.Module):
                                num_layers=self.num_layers,
                                dropout=self.dropout)
 
-        self.decoder = Decoder_mixloss(input_size=self.embedding_size,
+        self.decoder = Decoder(input_size=self.embedding_size,
                                hidden_size=self.hidden_size,
                                max_lenth=self.decoding_max_lenth,
                                sos_id=self.sos_id,

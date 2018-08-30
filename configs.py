@@ -17,7 +17,7 @@ class Config(object):
     beam_size = 3
     batch_size = 64
     padding_idx = 0
-    hidden_size = 128
+    hidden_size = 256
     dropout = 0
     init_tf_ratio = -100
     tf_ratio_decay_ratio = 0.9999

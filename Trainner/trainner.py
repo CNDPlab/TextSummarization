@@ -3,6 +3,7 @@ import time
 import os
 import random
 from tensorboardX import SummaryWriter
+from Predictor.Utils.loss import masked_cross_entropy, mixed_loss
 import numpy as np
 from tqdm import tqdm
 import shutil
@@ -21,7 +22,7 @@ class Trainner(object):
         self.teacher_forcing_ratio = 1
 
 
-    def train(self, model, loss_func, score_func, train_loader, dev_loader, resume, exp_root=None):
+    def train(self, model, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio, resume, exp_root=None):
         print(f'resume:{resume}')
         if exp_root is not None:
             self.exp_root = self.args.ckpt_root + exp_root
@@ -35,6 +36,7 @@ class Trainner(object):
             os.mkdir(self.tensorboard_root)
             os.mkdir(self.model_root)
         model.to(self.device)
+        self.teacher_forcing_ratio = teacher_forcing_ratio
         optimizer = t.optim.Adam(model.parameters())
         if resume:
             loaded = self._load(self.get_latest_cpath(), model)
@@ -54,72 +56,78 @@ class Trainner(object):
 
     def _train_epoch(self, model, optimizer, loss_func, score_func, train_loader, dev_loader):
         for data in tqdm(train_loader, desc='train step'):
+            model.teacher_forcing_ratio = self.teacher_forcing_ratio
             self._train_step(model, optimizer, loss_func, data)
+            if self.global_step >= self.args.close_teacher_forcing_step:
+                self.teacher_forcing_ratio = -100
+            else:
+                self.teacher_forcing_ratio -= self.args.tf_ratio_decay_ratio
 
             if self.global_step % self.args.eval_every_step == 0:
+                model.teacher_forcing_ratio = -100
                 score = self._eval(model, loss_func, score_func, dev_loader)
                 if self.global_step % self.args.save_every_step == 0:
                     self._save(model, self.global_epoch, self.global_step, optimizer, score)
-            if self.global_step == 50000:
+            if self.global_step == 5000:
                 self.summary_writer.add_embedding(model.embedding.weight.data, global_step=self.global_step)
-
     def _train_step(self, model, optimizer, loss_func, data):
         optimizer.zero_grad()
         train_loss = self._data2loss(model, loss_func, data)
+        #train_loss.requires_grad = True
         train_loss.backward()
         t.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=5.0)
         optimizer.step()
 
         self.summary_writer.add_scalar('loss/train_loss', train_loss.item(), self.global_step)
+        #self.summary_writer.add_scalar('loss/train_report_loss', report_loss.item(), self.global_step)
         self.summary_writer.add_scalar('teacher_forcing_ratio', model.teacher_forcing_ratio, self.global_step)
         #TODO add text writer for directly eval
         self.global_step += 1
 
-    def _data2loss(self, model, loss_func, data, score_func=None, ret_words=False):
+    def _data2loss_rl(self, model, loss_func, data, score_func=None):
         context, title, context_lenths, title_lenths = [i.to(self.device) for i in data]
-        token_id, prob_vector, token_lenth, attention_matrix = model(context, context_lenths, title)
-        loss = loss_func(prob_vector, title, token_lenth, title_lenths)
+        token_id, prob_vector, sample_token_id, sample_prob_vector = model(context, context_lenths, title)
+        #loss = loss_func(inputs = prob_vector, targets = title, target_lenth = title_lenths)
+        loss, report_loss = loss_func(token_id, prob_vector, sample_token_id, sample_prob_vector, title, title_lenths)
         if score_func is None:
-            if not ret_words:
-                return loss
-            else:
-                return loss, token_id, title
-
+            return loss, report_loss
         else:
-            if not ret_words:
-                score = score_func(token_id, title, self.args.eos_id)
-                return loss, score
-            else:
-                score = score_func(token_id, title, self.args.eos_id)
-                return loss, score, token_id, title
+            score = score_func(token_id, title, self.args.eos_id)
+            return loss, score, report_loss
+
+    def _data2loss(self, model, loss_func, data, score_func=None):
+        context, title, context_lenths, title_lenths = [i.to(self.device) for i in data]
+        token_id, prob_vector, sample_token_id, sample_prob_vector = model(context, context_lenths, title)
+        loss = loss_func(inputs = prob_vector, targets = title, target_lenth = title_lenths)
+        #loss, report_loss = loss_func(token_id, prob_vector, sample_token_id, sample_prob_vector, title, title_lenths)
+        if score_func is None:
+            return loss
+        else:
+            score = score_func(token_id, title, self.args.eos_id)
+            return loss, score
+
 
     def _eval(self, model, loss_func, score_func, dev_loader):
         eval_losses = []
+        report_losses = []
         eval_scores = []
         model.eval()
         with t.no_grad():
             for data in tqdm(dev_loader, desc='dev_step'):
-                eval_loss, eval_score, token_id, title = self._data2loss(model, loss_func, data, score_func, ret_words=True)
+                eval_loss, eval_score = self._data2loss(model, loss_func, data, score_func)
                 eval_losses.append(eval_loss.item())
+                #report_losses.append(report_loss.item())
                 eval_scores.append(eval_score)
         eval_scores = np.mean(eval_scores)
         eval_losses = np.mean(eval_losses)
+        eval_report_losses = np.mean(report_losses)
         self.summary_writer.add_scalar('loss/eval_loss', eval_losses, self.global_step)
         self.summary_writer.add_scalar('score/eval_score', eval_scores, self.global_step)
+        #self.summary_writer.add_scalar('score/eval_report_loss', eval_report_losses, self.global_step)
         for i, v in model.named_parameters():
             self.summary_writer.add_histogram(i.replace('.', '/'), v.clone().cpu().data.numpy(), self.global_step)
-            self.summary_writer.add_histogram(i.replace('.', '/')+'/grad', v.grad.clone().cpu().data.numpy(), self.global_step)
         model.train()
         return eval_scores
-
-    def write_sample_result_text(self, token_id, title):
-        token_list = token_id.tolist()
-        title_list = title.tolist()
-        word_list = [[self.vocab.from_id_token(word) for word in i] for i in token_list]
-        title_list = [[self.vocab.from_id_token(word) for word in i] for i in title_list]
-        self.summary_writer.add_text('pre', )
-        #TODO
-
 
     def _save(self, model, epoch, step, optimizer, score):
         date_time = time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime())

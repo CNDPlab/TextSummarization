@@ -66,8 +66,8 @@ class Trainner_transformer(object):
             os.mkdir(self.tensorboard_root)
             os.mkdir(self.model_root)
         print(f'exp_root{self.exp_root}')
-        model.to(self.device)
-        optimizer = t.optim.Adam([i for i in model.parameters() if i.requires_grad == True])
+        model = t.nn.DataParallel(model).cuda()
+        optimizer = t.optim.Adam([i for i in model.parameters() if i.requires_grad is True])
         optim = ScheduledOptim(optimizer, self.args.embedding_dim, 4000, n_current_steps=self.global_step)
         if resume:
             loaded = self._load(self.get_best_cpath(), model)
@@ -107,7 +107,7 @@ class Trainner_transformer(object):
         self.global_step += 1
 
     def _data2loss(self, model, loss_func, data, score_func=None, ret_words=False):
-        context, title, context_lenths, title_lenths = [i.to(self.device) for i in data]
+        context, title, context_lenths, title_lenths = [i.cuda() for i in data]
         token_id, prob_vector = model(inputs=context, targets=title)
         loss = loss_func(prob_vector, title)
         if score_func is None:

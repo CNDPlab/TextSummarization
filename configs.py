@@ -18,10 +18,10 @@ class Config(object):
     epochs = 50
     beam_size = 10
     num_head = 8
-    batch_size = 192
+    batch_size = 320
     padding_idx = 0
     hidden_size = 64
-    dropout = 0.2
+    dropout = 0.1
     num_layers = 1
     num_model_tosave = 3
     sos_id = None

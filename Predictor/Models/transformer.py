@@ -7,6 +7,8 @@ from collections import OrderedDict
 class Transformer(t.nn.Module):
     def __init__(self, args, matrix):
         super(Transformer, self).__init__()
+        self.matrix = matrix
+        self.matrix[0] = 0
         self.num_head = args.num_head
         self.vocabulary_size = matrix.size()[0]
         self.input_size = matrix.size()[1]
@@ -87,20 +89,25 @@ class Decoder(t.nn.Module):
         self.projection_scale = input_size ** -0.5
 
     def get_self_attention_mask(self, inputs):
-        device = inputs.device
         batch_size, seqlenth = inputs.size()
-        #TODO fix
-        mask = np.triu(np.ones((batch_size, seqlenth, seqlenth), dtype=np.uint8), k=1)
-        mask = t.from_numpy(mask).to(device)
-        return mask
+        subsequent_mask = t.triu(
+            t.ones((seqlenth, seqlenth), device=inputs.device, dtype=t.uint8), diagonal=1)
+        subsequent_mask = subsequent_mask.unsqueeze(0).expand(batch_size, -1, -1)
+        return subsequent_mask
 
     def get_dot_attention_mask(self, inputs, encoder_mask):
         # encoder_mask B
-        inputs_mask = inputs.eq(0).data
-        dot_attention_mask = t.bmm(inputs_mask.unsqueeze(-1).float(), encoder_mask.data.unsqueeze(-2).float()).byte()
+        inputs_mask = inputs.data.ne(0)
+        dot_attention_mask = (1-t.bmm(inputs_mask.unsqueeze(-1).float(), 1-encoder_mask.data.unsqueeze(-2).float())).byte()
         return dot_attention_mask
 
+    def get_pad_mask(self, inputs):
+        mask = inputs.ne(0).data.float()
+        return mask
+
+
     def forward(self, decoder_inputs, encoder_outputs, encoder_mask):
+
         self_attention_mask = self.get_self_attention_mask(decoder_inputs)
         dot_attention_mask = self.get_dot_attention_mask(decoder_inputs, encoder_mask)
         #inputs B, seqdecode, embedding_size
@@ -108,9 +115,9 @@ class Decoder(t.nn.Module):
         decoder_inputs_word = self.embedding(decoder_inputs)
         decoder_inputs_posi = self.position_embedding(decoder_inputs)
         decoder_inputs_vector = decoder_inputs_word + decoder_inputs_posi
-
+        non_pad_mask = self.get_pad_mask(decoder_inputs).unsqueeze(-1).expand_as(decoder_inputs_vector)
         for decoder_block in self.decoder_blocks:
-            decoder_inputs_vector = decoder_block(decoder_inputs_vector, encoder_outputs, self_attention_mask, dot_attention_mask)
+            decoder_inputs_vector = decoder_block(decoder_inputs_vector, encoder_outputs, self_attention_mask, dot_attention_mask, non_pad_mask)
         probs = (self.projection(decoder_inputs_vector) * self.projection_scale)
         tokens = probs.argmax(-1)
         return tokens, probs
@@ -123,10 +130,13 @@ class DecoderBlock(t.nn.Module):
         self.dot_multi_head_attention = MultiHeadAttentionBlock(num_head, input_size, hidden_size, dropout)
         self.feed_forward = FeedForward(input_size, hidden_size, dropout)
 
-    def forward(self, inputs, encoder_outputs, attention_mask, dot_attention_mask):
+    def forward(self, inputs, encoder_outputs, attention_mask, dot_attention_mask, non_pad_mask):
         net = self.self_multi_head_attention(inputs, inputs, attention_mask)
+        net = net * non_pad_mask
         net = self.dot_multi_head_attention(net, encoder_outputs, dot_attention_mask)# key,value = encoder_output
+        net = net * non_pad_mask
         net = self.feed_forward(net)
+        net = net * non_pad_mask
         return net
 
 
@@ -139,17 +149,23 @@ class Encoder(t.nn.Module):
                                                for _ in range(num_block)])
 
     def get_attention_mask(self, inputs):
-        mask = inputs.eq(0).data
-        attention_mask = t.bmm(mask.unsqueeze(-1).float(), mask.unsqueeze(-2).float()).byte()
+        mask = inputs.ne(0).data
+        attention_mask = (1-t.bmm(mask.unsqueeze(-1).float(), mask.unsqueeze(-2).float())).byte()
         return attention_mask
 
+    def get_pad_mask(self, inputs):
+        mask = inputs.ne(0).data.float()
+        return mask
+
     def forward(self, inputs):
+
         attention_mask = self.get_attention_mask(inputs)
         word = self.embedding(inputs)
         posi = self.position_embedding(inputs)
         net = word+posi
+        non_pad_mask = self.get_pad_mask(inputs).unsqueeze(-1).expand_as(net)
         for encoder_block in self.encoder_blocks:
-            net = encoder_block(net, attention_mask)
+            net = encoder_block(net, attention_mask, non_pad_mask)
         return net
 
 
@@ -159,9 +175,11 @@ class EncoderBlock(t.nn.Module):
         self.multi_head_attention = MultiHeadAttentionBlock(num_head, input_size, hidden_size, dropout)
         self.feed_forward_net = FeedForward(input_size, hidden_size, dropout)
 
-    def forward(self, inputs, attention_mask):
+    def forward(self, inputs, attention_mask, non_pad_mask):
         attention_net = self.multi_head_attention(inputs, inputs, attention_mask)
+        attention_net = attention_net * non_pad_mask
         feed_forward_net = self.feed_forward_net(attention_net)
+        feed_forward_net = feed_forward_net * non_pad_mask
         return feed_forward_net
 
 
@@ -238,11 +256,13 @@ class SelfAttention(t.nn.Module):
 class FeedForward(t.nn.Module):
     def __init__(self, input_size, hidden_size, dropout):
         super(FeedForward, self).__init__()
-        self.linear1 = t.nn.Conv1d(input_size, hidden_size, 1)
-        self.linear2 = t.nn.Conv1d(hidden_size, input_size, 1)
+        self.linear1 = t.nn.Conv1d(input_size, input_size*2, 1)
+        self.linear2 = t.nn.Conv1d(input_size*2, input_size, 1)
         self.drop = t.nn.Dropout(dropout)
         self.relu = t.nn.ReLU()
         self.layer_normalization = LayerNormalization(input_size)
+        t.nn.init.xavier_normal_(self.linear1.weight)
+        t.nn.init.xavier_normal_(self.linear2.weight)
 
     def forward(self, inputs):
         net = self.linear1(inputs.transpose(1, 2))
@@ -288,7 +308,7 @@ class PositionEncoding(t.nn.Module):
     def token2position(self, inputs):
         device = inputs.device
         batch_size, seq_lenth = inputs.size()
-        input_mask = inputs.data.eq(0).long()
+        input_mask = inputs.data.ne(0).long()
         positions = t.range(1, seq_lenth).repeat(batch_size).view(batch_size, seq_lenth).long().to(device)
         positions = positions * input_mask
         return positions

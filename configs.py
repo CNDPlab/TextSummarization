@@ -18,7 +18,7 @@ class Config(object):
     epochs = 50
     beam_size = 10
     num_head = 8
-    batch_size = 320
+    batch_size = 64
     padding_idx = 0
     hidden_size = 64
     dropout = 0.1

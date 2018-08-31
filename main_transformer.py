@@ -92,4 +92,4 @@ def test(**kwargs):
 
 if __name__ == '__main__':
     fire.Fire()
-
+'ckpt/20180830_051617/saved_models/2018_08_31_02_25_20T0.5548261015895142/model'

@@ -9,7 +9,7 @@ import torch as t
 class DataSet(Dataset):
     def __init__(self, path):
         super(DataSet, self).__init__()
-        self.files = [path + i for i in os.listdir(path)]
+        self.files = [path + i for i in os.listdir(path)][:1000000]
 
     def __getitem__(self, item):
         line = json.load(open(self.files[item]))

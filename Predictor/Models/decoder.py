@@ -14,7 +14,7 @@ class Decoder(t.nn.Module):
         super(Decoder, self).__init__()
         self.max_lenth = max_lenth
         self.vocab_size = vocab_size
-        self.embedding_dim = 128
+        self.embedding_dim = 256
         self.sos_id, self.eos_id = sos_id, eos_id
         self.beam_size = beam_size
         self.use_teacher_forcing = True
@@ -25,9 +25,12 @@ class Decoder(t.nn.Module):
                             batch_first=True,
                             num_layers=num_layer
                             )
-        self.teacher_forcing_ratio = 1
+        self.teacher_forcing = True
         self.merge_context_output = t.nn.Linear(hidden_size*2, hidden_size)
-        self.projection = t.nn.Linear(hidden_size*2, self.vocab_size)
+        self.projection0 = t.nn.Linear(hidden_size*2, self.embedding_dim)
+        self.projection = t.nn.Linear(self.embedding_dim, self.vocab_size)
+        self.projection_scale = self.embedding_dim ** -0.5
+
         t.nn.init.xavier_normal_(self.merge_context_output.weight)
         t.nn.init.xavier_normal_(self.projection.weight)
         t.nn.init.orthogonal_(self.rnn.weight_hh_l0)
@@ -59,8 +62,7 @@ class Decoder(t.nn.Module):
         ended_seq_id = []
         output_seq_lenth = {i: true_seq.size()[-1] for i in range(batch_size)}
         for step in range(true_seq.size()[-1]):
-            use_teacher_forcing = random.random() < self.teacher_forcing_ratio
-            if use_teacher_forcing:
+            if self.teacher_forcing:
                 token = true_seq[:, step]
             else:
                 pass
@@ -118,7 +120,7 @@ class Decoder(t.nn.Module):
         attention_vector, context_vector = Attention(encoder_hidden_states, encoder_lenths, output_state)
         # attention_vector [B, seq_lenth, 1]
         # contexT_vector [B, seq_lenth, 1]
-        output_state = self.projection(t.cat([output_state, context_vector], -1))
+        output_state = self.projection(self.projection0(t.cat([output_state, context_vector], -1))) * self.projection_scale
         output_prob = t.nn.functional.log_softmax(output_state, dim=-1)
         # output_state = self.projection(t.cat([output_state, context_vector], -1))
         # output_state = t.matmul(output_state, embedding.weight.data.transpose(0,1))

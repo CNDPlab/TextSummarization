@@ -3,11 +3,46 @@ import time
 import os
 import random
 from tensorboardX import SummaryWriter
-from Predictor.Utils.loss import masked_cross_entropy, mixed_loss
+from Predictor.Utils.loss import masked_cross_entropy, mixed_loss, masked_cross_entropy2
 import numpy as np
 from tqdm import tqdm
 import shutil
 import ipdb
+
+
+class ScheduledOptim(object):
+    '''A simple wrapper class for learning rate scheduling'''
+
+    def __init__(self, optimizer, d_model, n_warmup_steps, n_current_steps):
+        self._optimizer = optimizer
+        self.n_warmup_steps = n_warmup_steps
+        self.n_current_steps = n_current_steps
+        self.init_lr = np.power(d_model, -0.5)
+        self.current_lr = 0
+
+    def step_and_update_lr(self):
+        "Step with the inner optimizer"
+        self._update_learning_rate()
+        self._optimizer.step()
+
+    def zero_grad(self):
+        "Zero out the gradients by the inner optimizer"
+        self._optimizer.zero_grad()
+
+    def _get_lr_scale(self):
+        return np.min([
+            np.power(self.n_current_steps, -0.5),
+            np.power(self.n_warmup_steps, -1.5) * self.n_current_steps])
+
+    def _update_learning_rate(self):
+        ''' Learning rate scheduling per step '''
+
+        self.n_current_steps += 1
+        lr = self.init_lr * self._get_lr_scale()
+        self.current_lr = lr
+        for param_group in self._optimizer.param_groups:
+            param_group['lr'] = lr
+
 
 
 class Trainner(object):
@@ -22,7 +57,7 @@ class Trainner(object):
         self.teacher_forcing_ratio = 1
 
 
-    def train(self, model, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio, resume, exp_root=None):
+    def train(self, model, loss_func, score_func, train_loader, dev_loader, teacher_forcing_ratio=-100, resume=False, exp_root=None):
         print(f'resume:{resume}')
         if exp_root is not None:
             self.exp_root = self.args.ckpt_root + exp_root
@@ -37,7 +72,8 @@ class Trainner(object):
             os.mkdir(self.model_root)
         model.to(self.device)
         self.teacher_forcing_ratio = teacher_forcing_ratio
-        optimizer = t.optim.Adam(model.parameters())
+        optim = t.optim.Adam(model.parameters())
+        optimizer = ScheduledOptim(optim, self.args.embedding_dim, 4000, n_current_steps=self.global_step)
         if resume:
             loaded = self._load(self.get_latest_cpath(), model)
             optimizer = loaded['optimizer']
@@ -56,7 +92,7 @@ class Trainner(object):
 
     def _train_epoch(self, model, optimizer, loss_func, score_func, train_loader, dev_loader):
         for data in tqdm(train_loader, desc='train step'):
-            model.teacher_forcing_ratio = self.teacher_forcing_ratio
+            model.teacher_forcing = False
             self._train_step(model, optimizer, loss_func, data)
             if self.global_step >= self.args.close_teacher_forcing_step:
                 self.teacher_forcing_ratio = -100
@@ -76,11 +112,11 @@ class Trainner(object):
         #train_loss.requires_grad = True
         train_loss.backward()
         t.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=5.0)
-        optimizer.step()
+        optimizer.step_and_update_lr()
 
         self.summary_writer.add_scalar('loss/train_loss', train_loss.item(), self.global_step)
         #self.summary_writer.add_scalar('loss/train_report_loss', report_loss.item(), self.global_step)
-        self.summary_writer.add_scalar('teacher_forcing_ratio', model.teacher_forcing_ratio, self.global_step)
+        #self.summary_writer.add_scalar('teacher_forcing_ratio', model.teacher_forcing_ratio, self.global_step)
         #TODO add text writer for directly eval
         self.global_step += 1
 
@@ -112,6 +148,7 @@ class Trainner(object):
         report_losses = []
         eval_scores = []
         model.eval()
+        model.teacher_forcing = False
         with t.no_grad():
             for data in tqdm(dev_loader, desc='dev_step'):
                 eval_loss, eval_score = self._data2loss(model, loss_func, data, score_func)

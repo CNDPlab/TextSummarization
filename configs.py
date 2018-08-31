@@ -18,7 +18,7 @@ class Config(object):
     epochs = 50
     beam_size = 10
     num_head = 8
-    batch_size = 192
+    batch_size = 512
     padding_idx = 0
     hidden_size = 256
     dropout = 0
@@ -31,7 +31,7 @@ class Config(object):
     sos_id = None
     eos_id = None
     decoding_max_lenth = 50
-    eval_every_step = 500
+    eval_every_step = 200
     save_every_step = 4000
     unk_ratio = 0.3
 

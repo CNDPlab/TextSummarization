@@ -1,12 +1,19 @@
 # part 1 as train ,part3 with score 3,4,5 as test
 import pandas as pd
+from sklearn.model_selection import train_test_split
+from configs import Config
+from Predictor.Utils import Vocab
 import gc
+from tqdm import tqdm
+from concurrent.futures import ProcessPoolExecutor
 import json
 import shutil
 import os
+from cytoolz import concatv
 import time
 import pickle as pk
 import gensim
+from Predictor.Utils.T_S.lang_conv import *
 import ipdb
 from sklearn.model_selection import train_test_split
 from configs import Config
@@ -70,13 +77,15 @@ def is_uchar(uchar):
             return True
     return False
 
+stopwords = [line.strip() for line in open('Predictor/Utils/stopwords.dat.txt', 'r', encoding='utf-8').readlines()]
+converter = Converter('zh-hans')
 
 def process_data(data):
     data = data[1]
-    data['text'] = is_ustr(data.text)
-    data['summary'] = is_ustr(data.summary)
-    data['text_char'] = ['<BOS>'] + [i for i in data.text] + ['<EOS>']
-    data['summary_char'] = ['<BOS>'] + [i for i in data.summary] + ['<EOS>']
+    data['text'] = is_ustr(converter.convert(data.text))
+    data['summary'] = is_ustr(converter.convert(data.summary))
+    data['text_char'] = ['<BOS>'] + [i for i in data.text if i not in stopwords] + ['<EOS>']
+    data['summary_char'] = ['<BOS>'] + [i for i in data.summary if i not in stopwords] + ['<EOS>']
     del data['text'], data['summary']
     line = {i: data[i] for i in data.keys()}
     return line

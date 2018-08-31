@@ -62,7 +62,7 @@ class Rouge:
         return mask_x
 
     @staticmethod
-    def     rouge_l(cand_sents, ref_sents):
+    def rouge_l(cand_sents, ref_sents):
         lcs_scores = 0.0
         cand_unigrams = get_unigram_count(chain(*cand_sents))
         ref_unigrams = get_unigram_count(chain(*ref_sents))

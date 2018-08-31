@@ -29,7 +29,7 @@ def own_collate_fn(batch):
     text_id = np.asarray(text_id).transpose().tolist()
     title_id = list(itertools.zip_longest(*title_id, fillvalue=0))
     title_id = np.asarray(title_id).transpose().tolist()
-    return t.Tensor(text_id).long(), t.Tensor(title_id).long(), t.LongTensor(text_len), t.LongTensor(title_len)
+    return t.LongTensor(text_id), t.LongTensor(title_id), t.LongTensor(text_len), t.LongTensor(title_len)
 
 # def own_collate_fn(batch):
 #     batch.sort(key=lambda x: len(x[0]), reverse=True)

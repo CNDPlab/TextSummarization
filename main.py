@@ -9,6 +9,7 @@ from Predictor.Utils.loss import masked_cross_entropy, mixed_loss, masked_cross_
 from Predictor.Utils import batch_scorer
 from Trainner import Trainner
 from Predictor import Models
+from tqdm import tqdm
 import os
 import ipdb
 
@@ -55,13 +56,13 @@ def test(**kwargs):
     args.eos_id = eos_id
     args.sos_id = sos_id
     model = getattr(Models, args.model_name)(matrix=vocab.matrix, args=args)
-    load = _load('ckpt/20180830_060614/saved_models/2018_08_30_23_09_31T0.30983716323543486', model)
+    load = _load('ckpt/20180831_061121/saved_models/2018_09_01_20_43_41T0.33822982641268934', model)
     model = load['model']
     model.to('cuda')
     #TODO complete load_state_dict and predict
     model.teacher_forcing_ratio = -100
     with t.no_grad():
-        for data in test_loader:
+        for data in tqdm(test_loader,desc='test'):
             context, title, context_lenths, title_lenths = [i.to('cuda') for i in data]
             #token_id, prob_vector, token_lenth, attention_matrix = model.beam_forward(context, context_lenths)
             token_id = model.beam_forward(context, context_lenths)

@@ -143,7 +143,7 @@ class Decoder(t.nn.Module):
         output_state, hidden_state = self.rnn(rnn_input, input_hidden_state)
         attention_vector, context_vector = beam_Attention(encoder_hidden_states, encoder_lenths, output_state)
 
-        output_state = self.projection(t.cat([output_state, context_vector], -1))
+        output_state = self.projection(self.projection0(t.cat([output_state, context_vector], -1))) * self.projection_scale
         output_token = t.nn.functional.softmax(output_state, dim=-1)
         output_prob = output_token.topk(self.beam_size)[0]
         output_token = output_token.topk(self.beam_size)[1]

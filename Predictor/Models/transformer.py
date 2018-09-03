@@ -356,7 +356,7 @@ if __name__ == '__main__':
     test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
     vocab = pk.load(open('Predictor/Utils/vocab.pkl', 'rb'))
     eos_id, sos_id = vocab.token2id['<EOS>'], vocab.token2id['<BOS>']
-
+    mm.eval()
     with t.no_grad():
         for data in test_loader:
             context, title, context_lenths, title_lenths = [i.to('cuda') for i in data]

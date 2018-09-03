@@ -4,9 +4,9 @@ import ipdb
 from collections import OrderedDict
 
 
-class Transformer2(t.nn.Module):
+class Transformer(t.nn.Module):
     def __init__(self, args, matrix):
-        super(Transformer2, self).__init__()
+        super(Transformer, self).__init__()
         self.matrix = matrix
         self.matrix[0] = 0
         self.num_head = args.num_head
@@ -23,6 +23,8 @@ class Transformer2(t.nn.Module):
         self.decoder.embedding.weight = self.encoder.embedding.weight
         self.decoder.projection.weight = self.encoder.embedding.weight
 
+    def get_isin_feature(self, inputs):
+        is_in_feature = t.zeros(())
 
     def forward(self, inputs, targets):
         targets = targets[:, :-1].contiguous()
@@ -31,21 +33,30 @@ class Transformer2(t.nn.Module):
         tokens, probs = self.decoder(decoder_inputs=targets, encoder_outputs=encoder_outputs, encoder_mask=input_mask)
         return tokens, probs
 
-    def predict(self, inputs, beam_size):
-        #Beam Search
-        input_mask = inputs.eq(0).data
+
+    def greedy_search(self, inputs, decode_lenth=None, if_sample=False):
         batch_size = inputs.size()[0]
+        input_mask = inputs.eq(0).data
         device = inputs.device
-        encoder_outputs = self.encoder(inputs)
-        init_token = t.nn.Tensor([self.sos_id]*batch_size).unsqueeze(-1).to(device)
 
+        encoder_outputs = self.encoder(inputs=inputs)
+        tokens = t.LongTensor([self.sos_id]*batch_size).unsqueeze(-1).to(device) # batch of sos_id [B, x]
+        probs = t.zeros((batch_size, 1, self.vocabulary_size)).to(device)
+        if decode_lenth is not None:
+            step_cnt = decode_lenth-1
+        else:
+            step_cnt = self.decode_max_lenth
+        for i in range(step_cnt):
+            output_token, output_probs = self.decoder(decoder_inputs=tokens, encoder_outputs=encoder_outputs, encoder_mask=input_mask)
+            if not if_sample:
+                tokens = t.cat([tokens, output_token[:, -1:]], -1)
+                probs = t.cat([probs, output_probs], -2)
+            else:
+                output_token = t.nn.functional.softmax(output_probs, -1).multinomial(1)
+                tokens = t.cat([tokens, output_token], -1)
+                probs = t.cat([probs, output_probs], -2)
+        return tokens, t.nn.functional.log_softmax(probs[:, 1:, :], -1)
 
-        for step in range(self.decode_max_lenth):
-            step_token, step_prob = self.decoder(decoder_inputs=init_token, encoder_outputs=encoder_outputs, encoder_mask=input_mask)
-
-
-    def beam_step(self):
-        pass
 
 
     #
@@ -71,7 +82,7 @@ class Transformer2(t.nn.Module):
     #             tokens = t.cat([tokens, output_token], -1)
     #             probs = t.cat([probs, output_probs], -2)
     #     return tokens[:, 1:], t.nn.functional.log_softmax(probs[:, 1:, :], -1)
-    #
+
     #
     # def beam_forward(self, inputs, beam_size):
     #     pass
@@ -256,12 +267,10 @@ class SelfAttention(t.nn.Module):
 class FeedForward(t.nn.Module):
     def __init__(self, input_size, hidden_size, dropout):
         super(FeedForward, self).__init__()
-        self.linear = t.nn.Sequential(
-            t.nn.Linear(input_size, input_size*2),
-            t.nn.ReLU(),
-            t.nn.Linear(input_size*2, input_size)
-        )
+        self.linear1 = t.nn.Conv1d(input_size, input_size*4, 1)
+        self.linear2 = t.nn.Conv1d(input_size*4, input_size, 1)
         self.drop = t.nn.Dropout(dropout)
+        self.relu = t.nn.ReLU()
         self.layer_normalization = LayerNormalization(input_size)
         t.nn.init.xavier_normal_(self.linear1.weight)
         t.nn.init.xavier_normal_(self.linear2.weight)
@@ -327,10 +336,52 @@ if __name__ == '__main__':
     import pickle as pk
     vocab = pk.load(open('Predictor/Utils/vocab.pkl', 'rb'))
     args = Config()
-    args.sos_id = 5
+    args.sos_id = vocab.token2id['<BOS>']
+    args.batch_size=1
+    print(args.sos_id)
     matrix = vocab.matrix
     inputs = t.Tensor([[5]+[3]*59+[0]*40, [5]+[3]*99]).long()
-    transformer = Transformer2(args, matrix)
+    transformer = Transformer(args, matrix)
+    mm = t.nn.DataParallel(transformer).cuda()
 #    output = transformer(inputs)
-    output2 = transformer(inputs, True)
+#    output2 = transformer(inputs)
+    mm.load_state_dict(t.load('ckpt/20180830_051617/saved_models/2018_08_31_02_25_20T0.5548261015895142/model'))
+    from torch.utils.data import Dataset, DataLoader
+    from DataSets import DataSet
+    from DataSets import own_collate_fn
+    from Predictor.Utils import batch_scorer
+    train_set = DataSet(args.processed_folder+'train/')
+    dev_set = DataSet(args.processed_folder+'dev/')
+    test_set = DataSet(args.processed_folder+'test/')
+    train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
+    dev_loader = DataLoader(dev_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
+    test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
+    vocab = pk.load(open('Predictor/Utils/vocab.pkl', 'rb'))
+    eos_id, sos_id = vocab.token2id['<EOS>'], vocab.token2id['<BOS>']
 
+    with t.no_grad():
+        for data in test_loader:
+            context, title, context_lenths, title_lenths = [i.to('cuda') for i in data]
+            token_id, prob_vector = mm.module.greedy_search(context)
+            score = batch_scorer(token_id.tolist(), title.tolist(), args.eos_id)
+            context_word = [[vocab.from_id_token(id.item()) for id in sample] for sample in context]
+            words = [[vocab.from_id_token(id.item()) for id in sample] for sample in token_id]
+            title_words = [[vocab.from_id_token(id.item()) for id in sample] for sample in title]
+
+            for i in zip(context_word, words, title_words):
+                a = input('next')
+                context = ''.join(i[0])
+                pre = ''.join(i[1])
+                tru = ''.join(i[2])
+                print('context:')
+                print(f'{context}')
+                print('------------')
+                print('pre:')
+                print(f'{pre}')
+                print('------------')
+                print('tru:')
+                print(f'{tru}')
+                print('===========================================')
+
+
+t.Tensor.index_fill()

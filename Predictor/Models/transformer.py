@@ -335,6 +335,7 @@ if __name__ == '__main__':
     vocab = pk.load(open('Predictor/Utils/vocab.pkl', 'rb'))
     args = Config()
     args.sos_id = vocab.token2id['<BOS>']
+    args.batch_size=1
     print(args.sos_id)
     matrix = vocab.matrix
     inputs = t.Tensor([[5]+[3]*59+[0]*40, [5]+[3]*99]).long()
@@ -349,13 +350,15 @@ if __name__ == '__main__':
     from Predictor.Utils import batch_scorer
     train_set = DataSet(args.processed_folder+'train/')
     dev_set = DataSet(args.processed_folder+'dev/')
+    test_set = DataSet(args.processed_folder+'test/')
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
     dev_loader = DataLoader(dev_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
+    test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
     vocab = pk.load(open('Predictor/Utils/vocab.pkl', 'rb'))
     eos_id, sos_id = vocab.token2id['<EOS>'], vocab.token2id['<BOS>']
 
     with t.no_grad():
-        for data in dev_loader:
+        for data in test_loader:
             context, title, context_lenths, title_lenths = [i.to('cuda') for i in data]
             token_id, prob_vector = mm.module.greedy_search(context)
             score = batch_scorer(token_id.tolist(), title.tolist(), args.eos_id)

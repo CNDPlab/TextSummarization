@@ -21,7 +21,7 @@ def train(**kwargs):
     score_func = batch_scorer
     train_set = DataSet(args.processed_folder+'train/')
     dev_set = DataSet(args.processed_folder+'dev/')
-    train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
+    train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn, num_workers=20)
     dev_loader = DataLoader(dev_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
     vocab = pk.load(open('Predictor/Utils/vocab.pkl', 'rb'))
     eos_id, sos_id = vocab.token2id['<EOS>'], vocab.token2id['<BOS>']

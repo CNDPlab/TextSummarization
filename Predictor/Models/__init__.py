@@ -6,7 +6,7 @@ from .decoder_mixedloss import Decoder_mixloss
 from .encoder_decoder import EncoderDecoder
 from .attention import Attention, beam_Attention
 from .transformer import Transformer
-
+from .universal_transformer import UniversalTransformer
 
 
 

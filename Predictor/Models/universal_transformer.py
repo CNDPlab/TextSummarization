@@ -1,37 +1,73 @@
 import torch as t
 import numpy as np
-
+import ipdb
+from tqdm import tqdm
 #TODO check masks
+# import time
+# from tqdm import tqdm
+#
+#
+# def timer(func):
+#     def wrapper(*args, **kwargs):
+#         start_time = time.time()
+#         res = func(*args, **kwargs)
+#         end_time = time.time()
+#         msecs = (end_time - start_time)*1000
+#         print(f'{func.__name__} :{msecs}')
+#         return res
+#     return wrapper
+# @timer
+# def fu(x):
+#     return x+1
+
+
 class UniversalTransformer(t.nn.Module):
     def __init__(self, args, matrix):
         super(UniversalTransformer, self).__init__()
         self.args = args
-
+        self.decoder_max_lenth = 50
         self.matrix = matrix
         self.matrix[0] = 0
         self.vocabulary_size, self.embedding_size = matrix.size()
         self.max_position_lenth = args.encoder_max_lenth
         self.max_step_lenth = args.max_step_lenth
-        self.encoder = Encoder(args.embedding_size, self.vocabulary_size, self.max_position_lenth, self.max_step_lenth,
+        self.encoder = Encoder(self.embedding_size, self.vocabulary_size, self.max_position_lenth, self.max_step_lenth,
                                args.num_head, args.hidden_size, args.dropout)
-        self.decoder = Decoder(args.embedding_size, self.vocabulary_size, self.max_position_lenth, self.max_step_lenth,
+        self.decoder = Decoder(self.embedding_size, self.vocabulary_size, self.max_position_lenth, self.max_step_lenth,
                                args.num_head, args.hidden_size, args.dropout)
         # share weights
-        self.encoder.word_embedding.weight = t.from_numpy(matrix)
+        self.encoder.word_embedding.weight.data = matrix
         self.decoder.word_embedding.weight = self.encoder.word_embedding.weight
-        self.decoder.position_embedding.weight = self.encoder.position_embedding.weight
-        self.decoder.step_embedding.weight = self.encoder.step_embedding.weight
         self.decoder.projection.weight = self.encoder.word_embedding.weight
-
+    
     def forward(self, context, ground_truth):
+        ground_truth = ground_truth[:, :-1].contiguous()
         encoder_output, encoder_input_mask = self.encoder(context)
         decoder_output = self.decoder(encoder_output, encoder_input_mask, ground_truth)
-        return decoder_output
-
+        token_ids = decoder_output.argmax(-1)
+        probs = decoder_output
+        return token_ids, probs
+    
     def greedy_search(self, context):
-        pass
+        #TODO
+        batch_size = context.size()[0]
+        device = context.device
+        input_tokens = t.LongTensor([self.args.sos_id]*batch_size).unsqueeze(-1).to(device)
+        encoder_output, context_mask = self.encoder(context)
+        output_probs = t.ones((batch_size, 1, self.vocabulary_size))
+        for step in range(self.decoder_max_lenth):
+            decoder_output = self.decoder(encoder_output, context_mask, input_tokens)
+            last_prob = decoder_output[:, -1:, :]
+            last_token = last_prob.topk(1)[1]
+            input_tokens = t.cat([input_tokens, last_token], -1)
+            output_probs = t.cat([output_probs, last_prob], -2)
+
+        output_tokens = input_tokens[:, 1:].contiguous()
+        output_probs = output_probs[:, 1:, :].contiguous()
+        return output_tokens, output_probs
 
     def beam_search(self, context):
+        #TODO
         pass
 
 
@@ -40,30 +76,31 @@ class Encoder(t.nn.Module):
         super(Encoder, self).__init__()
         self.num_step = max_step_lenth-1
         self.word_embedding = t.nn.Embedding(vocabulary_size, embedding_size)
-        self.position_embedding = t.nn.Embedding(max_position_lenth, embedding_size)
-        self.step_embedding = t.nn.Embedding(max_step_lenth, embedding_size)
+        self.position_embedding = PositionEmbedding(max_position_lenth, embedding_size)
+        self.step_embedding = StepEmbedding(max_position_lenth, embedding_size)
         self.encoder_block = EncoderBlock(num_head, embedding_size, hidden_size, dropout)
-
+    
     def get_step_feature(self, input_mask, step):
-        return input_mask * step
-
+        return (input_mask * step).long()
+    
     def get_position_feature(self, input_mask):
         batch_size, seq_lenth = input_mask.size()
         device = input_mask.device
         input_feature = t.range(1, seq_lenth, dtype=t.long, device=device).repeat(batch_size).view(batch_size, seq_lenth)
-        input_feature = input_feature * input_mask
+        input_feature = input_feature * input_mask.long()
         return input_feature
     # masks
+    
     def get_input_mask(self, inputs):
-        input_mask = inputs.data.ne(0).long()
+        input_mask = inputs.data.ne(0).float()
         return input_mask
 
     def get_self_attention_mask(self, input_mask):
         self_attention_mask = t.bmm(input_mask.unsqueeze(-1), input_mask.unsqueeze(-2)).byte()
         return self_attention_mask
-
-    def get_position_mask(self, input_mask, inputs):
-        position_mask = input_mask.unsqueeze(-1).expand_as(inputs)
+    
+    def get_position_mask(self, input_mask, inputs_vector):
+        position_mask = input_mask.unsqueeze(-1).expand_as(inputs_vector)
         return position_mask
 
     def forward(self, inputs):
@@ -73,9 +110,8 @@ class Encoder(t.nn.Module):
         position_embedding = self.position_embedding(position_feature)
         net = self.word_embedding(inputs)
         position_mask = self.get_position_mask(input_mask, net)
-
-        for step in range(1, self.num_step + 1):
-            net = net + position_embedding
+        net = net + position_embedding
+        for step in range(1, self.num_step):
             step_feature = self.get_step_feature(input_mask, step)
             step_embedding = self.step_embedding(step_feature)
             net = net + step_embedding
@@ -92,61 +128,66 @@ class Decoder(t.nn.Module):
         self.step_embedding = StepEmbedding(max_step_lenth, embedding_size)
         self.decoder_block = DecoderBlock(num_head, embedding_size, hidden_size, dropout)
         self.projection = t.nn.Linear(embedding_size, vocabulary_size)
+        self.projection_scale = embedding_size ** -0.5
 
     def get_input_mask(self, inputs):
-        input_mask = inputs.data.ne(0).long()
+        input_mask = inputs.data.ne(0).float()
         return input_mask
-
+    
+    def get_position_mask(self, input_mask, input_vector):
+        position_mask = input_mask.unsqueeze(-1).expand_as(input_vector)
+        return position_mask
+    
     def get_self_attention_forward_mask(self, inputs):
         batch_size, seq_lenth = inputs.size()
         device = inputs.device
-        self_attention_forward_mask = t.tril(t.ones(seq_lenth, seq_lenth), device=device)
+        self_attention_forward_mask = t.tril(t.ones((seq_lenth, seq_lenth), device=device)).byte().data
         return self_attention_forward_mask
 
     def get_self_attention_mask(self, input_mask):
-        self_attention_mask = t.bmm(input_mask.unsqueeze(-1), input_mask.unsqueeze(-2))
+        self_attention_mask = t.bmm(input_mask.unsqueeze(-1), input_mask.unsqueeze(-2)).byte()
         return self_attention_mask
 
     def get_dot_attention_mask(self, encoder_input_mask, decoder_input_mask):
-        dot_attention_mask = t.bmm(encoder_input_mask.unsqueeze(-1), decoder_input_mask.unsqueeze(-2))
+        dot_attention_mask = t.bmm(decoder_input_mask.unsqueeze(-1), encoder_input_mask.unsqueeze(-2)).byte()
         return dot_attention_mask
 
     def get_step_feature(self, input_mask, step):
-        return input_mask * step
+        return input_mask.long() * step
 
     def get_position_feature(self, input_mask):
         batch_size, seq_lenth = input_mask.size()
         device = input_mask.device
         input_feature = t.range(1, seq_lenth, dtype=t.long, device=device).repeat(batch_size).view(batch_size, seq_lenth)
-        input_feature = input_feature * input_mask
+        input_feature = input_feature * input_mask.long()
         return input_feature
 
     def forward(self, encoder_output, encoder_input_mask, inputs):
         input_mask = self.get_input_mask(inputs)
-        position_mask = self.get_position_feature(input_mask)
-        self_attention_forward_mask = self.get_self_attention_mask(input_mask)
+        self_attention_forward_mask = self.get_self_attention_forward_mask(input_mask)
         self_attention_mask = self.get_self_attention_mask(input_mask)
         self_attention_mask = self_attention_mask * self_attention_forward_mask
+
         dot_attention_mask = self.get_dot_attention_mask(encoder_input_mask, input_mask)
 
         net = self.word_embedding(inputs)
+        position_mask = self.get_position_mask(input_mask, net)
         position_feature = self.get_position_feature(input_mask)
         position_embedding = self.position_embedding(position_feature)
-
-        for step in range(1, self.num_step+1):
-            net = net + position_embedding
+        net = net + position_embedding
+        for step in range(1, self.num_step):
             step_feature = self.get_step_feature(input_mask, step)
             step_embedding = self.step_embedding(step_feature)
             net = net + step_embedding
-            net = self.decoder_block(net, self_attention_mask, dot_attention_mask, position_mask)
-        net = self.projection(net)
+            net = self.decoder_block(net, encoder_output, self_attention_mask, dot_attention_mask, position_mask)
+        net = self.projection(net) * self.projection_scale
         return net
 
 
 class EncoderBlock(t.nn.Module):
     def __init__(self, num_head, embedding_size, hidden_size, dropout):
         super(EncoderBlock, self).__init__()
-        self.multi_head_self_attetnion = MultiHeadSelfAttention(num_head, embedding_size, hidden_size, dropout)
+        self.multi_head_self_attention = MultiHeadSelfAttention(num_head, embedding_size, hidden_size, dropout)
         self.drop_out = t.nn.Dropout(dropout)
         self.layer_normalization1 = LayerNormalization(embedding_size)
         self.transition_function = TransitionFunction(embedding_size, dropout)
@@ -154,17 +195,15 @@ class EncoderBlock(t.nn.Module):
 
     def forward(self, inputs, self_attention_mask, position_mask):
         residual = inputs
-        net = self.multi_head_self_attention(inputs, inputs, inputs, self_attention_mask)
+        net, self_attention_matrix = self.multi_head_self_attention(inputs, inputs, inputs, self_attention_mask)
+        net = self.drop_out(net)
         net = net + residual
-        net = net * position_mask
-        net = self.drop_out(net)
         net = self.layer_normalization1(net)
+        net = net * position_mask
         residual1 = net
-        net = net * position_mask
         net = self.transition_function(net)
-        net = net * position_mask
-        net = net + residual1
         net = self.drop_out(net)
+        net = net + residual1
         net = self.layer_normalization2(net)
         net = net * position_mask
         return net
@@ -180,31 +219,30 @@ class DecoderBlock(t.nn.Module):
         self.transition_function = TransitionFunction(embedding_size, dropout)
         self.layer_normalization2 = LayerNormalization(embedding_size)
         self.layer_normalization3 = LayerNormalization(embedding_size)
-
+    
     def forward(self, inputs, encoder_outputs, self_attention_mask, dot_attention_mask, position_mask):
         residual = inputs
-        net = self.multi_head_self_attetnion(inputs, inputs, inputs, self_attention_mask)
-        net = net + residual
-        net = net * position_mask
+        net, self_attention_matrix = self.multi_head_self_attetnion(inputs, inputs, inputs, self_attention_mask)
         net = self.drop_out(net)
+        net = net + residual
         net = self.layer_normalization1(net)
         net = net * position_mask
         residual2 = net
-        dot_attention = self.multi_head_dot_attention(encoder_outputs, net, dot_attention_mask)
-        dot_attention = dot_attention * position_mask
-        net = dot_attention + residual2
+        net, dot_attention_matrix = self.multi_head_dot_attention(net, encoder_outputs, encoder_outputs, dot_attention_mask)
         net = self.drop_out(net)
+        net = net + residual2
         net = self.layer_normalization2(net)
+        net = net * position_mask
         residual3 = net
-        net = net * position_mask
         net = self.transition_function(net)
-        net = net * position_mask
         net = net + residual3
+        net = self.layer_normalization3(net)
+        net = net * position_mask
         return net
 
 
 class PositionEmbedding(t.nn.Module):
-    def __init__(self, embedding_size, max_position):
+    def __init__(self, max_position, embedding_size):
         super(PositionEmbedding, self).__init__()
         self.max_position = max_position
         self.embedding_size = embedding_size
@@ -225,7 +263,7 @@ class PositionEmbedding(t.nn.Module):
 
 
 class StepEmbedding(t.nn.Module):
-    def __init__(self, embedding_size, max_step):
+    def __init__(self, max_step, embedding_size):
         super(StepEmbedding, self).__init__()
         self.embedding_size = embedding_size
         self.max_step = max_step
@@ -256,9 +294,8 @@ class MultiHeadSelfAttention(t.nn.Module):
         self.self_attention = SelfAttention(hidden_size, dropout)
         self.dropout = t.nn.Dropout(dropout)
         self.projection = t.nn.Linear(hidden_size * num_head, embedding_size)
-        t.nn.init.xavier_uniform_(self.reshape_value.weight)
+        t.nn.init.xavier_uniform_(self.reshape_query.weight)
         t.nn.init.xavier_uniform_(self.reshape_key.weight)
-        t.nn.init.xavier_uniform_(self.reshape_value.weight)
         t.nn.init.xavier_uniform_(self.projection.weight)
 
     def forward(self, query, key, value, attention_mask):
@@ -274,11 +311,10 @@ class MultiHeadSelfAttention(t.nn.Module):
         query_ = self.dropout(query_)
         key_ = self.dropout(key_)
         value_ = self.dropout(value_)
-
-        attention_mask = attention_mask.repeat(self.num_head*batch_size, 1, 1)
+        attention_mask = attention_mask.repeat(self.num_head, 1, 1)
         output, attention_matrix = self.self_attention(query_, key_, value_, attention_mask)
-        output = output.view(self.num_head, batch_size, key_seqlenth, self.hidden_size)
-        output = output.permute(1, 2, 0, 3).view(batch_size, key_seqlenth, -1)
+        output = output.view(self.num_head, batch_size, query_seqlenth, self.hidden_size)
+        output = output.permute(1, 2, 0, 3).contiguous().view(batch_size, query_seqlenth, -1)
         output = self.projection(output)
         return output, attention_matrix
 
@@ -290,13 +326,13 @@ class SelfAttention(t.nn.Module):
         self.dropout = t.nn.Dropout(dropout)
 
     def forward(self, query, key, value, mask):
-        attention = t.bmm(query, key.transpose(1, 2))
+        attention = t.bmm(query, key.transpose(1, 2)) / self.C
         attention = attention.masked_fill(1-mask, -float('inf'))
         attention = t.nn.functional.softmax(attention, -1)
         attention = attention.masked_fill(t.isnan(attention), 0)
         attention = self.dropout(attention)
-        output = t.bmm(attention, key)
-        return output
+        output = t.bmm(attention, value)
+        return output, attention
 
 
 class LayerNormalization(t.nn.Module):
@@ -305,7 +341,7 @@ class LayerNormalization(t.nn.Module):
         self.gamma = t.nn.Parameter(t.ones(embedding_size))
         self.beta = t.nn.Parameter(t.zeros(embedding_size))
         self.eps = eps
-
+    
     def forward(self, inputs):
         mean = inputs.mean(-1, keepdim=True)
         std = inputs.std(-1, unbiased=False, keepdim=True)
@@ -316,8 +352,8 @@ class LayerNormalization(t.nn.Module):
 class TransitionFunction(t.nn.Module):
     def __init__(self, embedding_size, dropout):
         super(TransitionFunction, self).__init__()
-        self.linear1 = t.nn.Conv1d(embedding_size, embedding_size*4, 1)
-        self.linear2 = t.nn.Conv1d(embedding_size*4, embedding_size, 1)
+        self.linear1 = t.nn.Conv1d(embedding_size, embedding_size*2, 1)
+        self.linear2 = t.nn.Conv1d(embedding_size*2, embedding_size, 1)
         self.drop = t.nn.Dropout(dropout)
         self.relu = t.nn.ReLU()
         t.nn.init.xavier_normal_(self.linear1.weight)
@@ -331,4 +367,41 @@ class TransitionFunction(t.nn.Module):
         net = net.transpose(1, 2)
         net = self.drop(net)
         return net
+
+if __name__ == '__main__':
+    from configs import Config
+    import pickle as pk
+    vocab = pk.load(open('Predictor/Utils/vocab.pkl', 'rb'))
+    args = Config()
+    args.sos_id = vocab.token2id['<BOS>']
+    args.eos_id = vocab.token2id['<EOS>']
+    args.batch_size = 64
+    print(args.sos_id)
+    matrix = vocab.matrix
+    model = UniversalTransformer(args, matrix).cuda()
+    from torch.utils.data import DataLoader
+    from DataSets import DataSet
+    from DataSets import own_collate_fn
+    from Predictor.Utils import batch_scorer
+    from Predictor.Utils.loss import loss_function
+    train_set = DataSet(args.processed_folder+'train/')
+    train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
+    vocab = pk.load(open('Predictor/Utils/vocab.pkl', 'rb'))
+    eos_id, sos_id = vocab.token2id['<EOS>'], vocab.token2id['<BOS>']
+    optim = t.optim.Adam([i for i in model.parameters() if i.requires_grad is True])
+    # for data in tqdm(train_loader):
+    #     context, title, context_lenths, title_lenths = data
+
+    for data in tqdm(train_loader):
+        context, title, context_lenths, title_lenths = [i.to('cuda') for i in data]
+        token_id, probs = model(context, title)
+        loss = loss_function(probs, title)
+        optim.zero_grad()
+        loss.backward()
+        optim.step()
+        ipdb.set_trace()
+        print(model.encoder.word_embedding.weight.grad)
+        print(token_id[0])
+        print(probs[0])
+
 

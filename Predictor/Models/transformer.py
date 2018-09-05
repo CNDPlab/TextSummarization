@@ -338,7 +338,6 @@ if __name__ == '__main__':
     args.batch_size=1
     print(args.sos_id)
     matrix = vocab.matrix
-    inputs = t.Tensor([[5]+[3]*59+[0]*40, [5]+[3]*99]).long()
     transformer = Transformer(args, matrix)
     mm = t.nn.DataParallel(transformer).cuda()
 #    output = transformer(inputs)

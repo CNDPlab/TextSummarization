@@ -108,7 +108,7 @@ class Trainner_transformer(object):
 
     def _data2loss(self, model, loss_func, data, score_func=None, ret_words=False):
         context, title, context_lenths, title_lenths = [i.cuda() for i in data]
-        token_id, prob_vector = model(inputs=context, targets=title)
+        token_id, prob_vector = model(context, title)
         loss = loss_func(prob_vector, title)
         if score_func is None:
             if not ret_words:
@@ -143,8 +143,8 @@ class Trainner_transformer(object):
         return eval_scores
 
     def write_sample_result_text(self, token_id, title):
-        token_list = token_id.tolist()[0]
-        title_list = title.tolist()[0]
+        token_list = token_id.data.tolist()[0]
+        title_list = title.data.tolist()[0]
         word_list = [self.vocab.from_id_token(word) for word in token_list]
         title_list = [self.vocab.from_id_token(word) for word in title_list]
         word_pre = ' '.join(word_list) + '---' + ' '.join(title_list)

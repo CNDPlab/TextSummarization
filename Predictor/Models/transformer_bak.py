@@ -23,8 +23,6 @@ class Transformer(t.nn.Module):
         self.decoder.embedding.weight = self.encoder.embedding.weight
         self.decoder.projection.weight = self.encoder.embedding.weight
 
-    def get_isin_feature(self, inputs):
-        is_in_feature = t.zeros(())
 
     def forward(self, inputs, targets):
         targets = targets[:, :-1].contiguous()
@@ -267,8 +265,8 @@ class SelfAttention(t.nn.Module):
 class FeedForward(t.nn.Module):
     def __init__(self, input_size, hidden_size, dropout):
         super(FeedForward, self).__init__()
-        self.linear1 = t.nn.Conv1d(input_size, input_size*4, 1)
-        self.linear2 = t.nn.Conv1d(input_size*4, input_size, 1)
+        self.linear1 = t.nn.Conv1d(input_size, input_size*2, 1)
+        self.linear2 = t.nn.Conv1d(input_size*2, input_size, 1)
         self.drop = t.nn.Dropout(dropout)
         self.relu = t.nn.ReLU()
         self.layer_normalization = LayerNormalization(input_size)
@@ -340,7 +338,6 @@ if __name__ == '__main__':
     args.batch_size=1
     print(args.sos_id)
     matrix = vocab.matrix
-    inputs = t.Tensor([[5]+[3]*59+[0]*40, [5]+[3]*99]).long()
     transformer = Transformer(args, matrix)
     mm = t.nn.DataParallel(transformer).cuda()
 #    output = transformer(inputs)
@@ -358,7 +355,7 @@ if __name__ == '__main__':
     test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
     vocab = pk.load(open('Predictor/Utils/vocab.pkl', 'rb'))
     eos_id, sos_id = vocab.token2id['<EOS>'], vocab.token2id['<BOS>']
-
+    mm.eval()
     with t.no_grad():
         for data in test_loader:
             context, title, context_lenths, title_lenths = [i.to('cuda') for i in data]
@@ -382,6 +379,3 @@ if __name__ == '__main__':
                 print('tru:')
                 print(f'{tru}')
                 print('===========================================')
-
-
-t.Tensor.index_fill()

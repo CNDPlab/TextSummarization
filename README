@@ -4,7 +4,7 @@ rouge metric: https://github.com/pcyin/PyRouge
 
 
 1：RNN+ATTENTION
-2：use copynet
-3：Transformer？
-4: CNN
+2：Transformer
+3: UniversalTransformer
+4：use copynet
 5: RL

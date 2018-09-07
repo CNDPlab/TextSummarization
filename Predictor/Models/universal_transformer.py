@@ -75,7 +75,7 @@ class Encoder(t.nn.Module):
     def __init__(self, embedding_size, vocabulary_size, max_position_lenth, max_step_lenth, num_head, hidden_size, dropout):
         super(Encoder, self).__init__()
         self.num_step = max_step_lenth-1
-        self.word_embedding = t.nn.Embedding(vocabulary_size, embedding_size)
+        self.word_embedding = t.nn.Embedding(vocabulary_size, embedding_size, padding_idx=0)
         self.position_embedding = PositionEmbedding(max_position_lenth, embedding_size)
         self.step_embedding = StepEmbedding(max_position_lenth, embedding_size)
         self.encoder_block = EncoderBlock(num_head, embedding_size, hidden_size, dropout)
@@ -110,8 +110,8 @@ class Encoder(t.nn.Module):
         position_embedding = self.position_embedding(position_feature)
         net = self.word_embedding(inputs)
         position_mask = self.get_position_mask(input_mask, net)
-        net = net + position_embedding
         for step in range(1, self.num_step):
+            net = net + position_embedding
             step_feature = self.get_step_feature(input_mask, step)
             step_embedding = self.step_embedding(step_feature)
             net = net + step_embedding
@@ -123,7 +123,7 @@ class Decoder(t.nn.Module):
     def __init__(self, embedding_size, vocabulary_size, max_position_lenth, max_step_lenth, num_head, hidden_size, dropout):
         super(Decoder, self).__init__()
         self.num_step = max_step_lenth-1
-        self.word_embedding = t.nn.Embedding(vocabulary_size, embedding_size)
+        self.word_embedding = t.nn.Embedding(vocabulary_size, embedding_size, padding_idx=0)
         self.position_embedding = PositionEmbedding(max_position_lenth, embedding_size)
         self.step_embedding = StepEmbedding(max_step_lenth, embedding_size)
         self.decoder_block = DecoderBlock(num_head, embedding_size, hidden_size, dropout)
@@ -174,8 +174,8 @@ class Decoder(t.nn.Module):
         position_mask = self.get_position_mask(input_mask, net)
         position_feature = self.get_position_feature(input_mask)
         position_embedding = self.position_embedding(position_feature)
-        net = net + position_embedding
         for step in range(1, self.num_step):
+            net = net + position_embedding
             step_feature = self.get_step_feature(input_mask, step)
             step_embedding = self.step_embedding(step_feature)
             net = net + step_embedding
@@ -294,9 +294,10 @@ class MultiHeadSelfAttention(t.nn.Module):
         self.self_attention = SelfAttention(hidden_size, dropout)
         self.dropout = t.nn.Dropout(dropout)
         self.projection = t.nn.Linear(hidden_size * num_head, embedding_size)
-        t.nn.init.xavier_uniform_(self.reshape_query.weight)
-        t.nn.init.xavier_uniform_(self.reshape_key.weight)
-        t.nn.init.xavier_uniform_(self.projection.weight)
+        t.nn.init.xavier_normal_(self.reshape_query.weight)
+        t.nn.init.xavier_normal_(self.reshape_key.weight)
+        t.nn.init.xavier_normal_(self.reshape_value.weight)
+        t.nn.init.xavier_normal_(self.projection.weight)
 
     def forward(self, query, key, value, attention_mask):
         batch_size, query_seqlenth, _ = query.size()
@@ -375,10 +376,10 @@ if __name__ == '__main__':
     args = Config()
     args.sos_id = vocab.token2id['<BOS>']
     args.eos_id = vocab.token2id['<EOS>']
-    args.batch_size = 64
+    args.batch_size = 4
     print(args.sos_id)
     matrix = vocab.matrix
-    model = UniversalTransformer(args, matrix).cuda()
+    model = UniversalTransformer(args, matrix)
     from torch.utils.data import DataLoader
     from DataSets import DataSet
     from DataSets import own_collate_fn
@@ -391,15 +392,14 @@ if __name__ == '__main__':
     optim = t.optim.Adam([i for i in model.parameters() if i.requires_grad is True])
     # for data in tqdm(train_loader):
     #     context, title, context_lenths, title_lenths = data
-
     for data in tqdm(train_loader):
-        context, title, context_lenths, title_lenths = [i.to('cuda') for i in data]
+        context, title, context_lenths, title_lenths = [i for i in data]
         token_id, probs = model(context, title)
         loss = loss_function(probs, title)
         optim.zero_grad()
         loss.backward()
-        optim.step()
         ipdb.set_trace()
+        optim.step()
         print(model.encoder.word_embedding.weight.grad)
         print(token_id[0])
         print(probs[0])

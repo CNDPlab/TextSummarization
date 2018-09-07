@@ -140,9 +140,9 @@ class DecoderBlock(t.nn.Module):
         self.feed_forward = FeedForward(input_size, hidden_size, dropout)
 
     def forward(self, inputs, encoder_outputs, attention_mask, dot_attention_mask, non_pad_mask):
-        net = self.self_multi_head_attention(inputs, inputs, attention_mask)
+        net = self.self_multi_head_attention(inputs, inputs, inputs, attention_mask)
         net = net * non_pad_mask
-        net = self.dot_multi_head_attention(net, encoder_outputs, dot_attention_mask)# key,value = encoder_output
+        net = self.dot_multi_head_attention(net, encoder_outputs, encoder_outputs, dot_attention_mask)# key,value = encoder_output
         net = net * non_pad_mask
         net = self.feed_forward(net)
         net = net * non_pad_mask
@@ -185,7 +185,7 @@ class EncoderBlock(t.nn.Module):
         self.feed_forward_net = FeedForward(input_size, hidden_size, dropout)
 
     def forward(self, inputs, attention_mask, non_pad_mask):
-        attention_net = self.multi_head_attention(inputs, inputs, attention_mask)
+        attention_net = self.multi_head_attention(inputs, inputs, inputs, attention_mask)
         attention_net = attention_net * non_pad_mask
         feed_forward_net = self.feed_forward_net(attention_net)
         feed_forward_net = feed_forward_net * non_pad_mask
@@ -202,8 +202,8 @@ class MultiHeadAttentionBlock(t.nn.Module):
         ]))
         self.layer_normalization = LayerNormalization(input_size)
 
-    def forward(self, query, key, attention_mask):
-        net, attention_matrix = self.multi_head_attention(query, key, attention_mask)
+    def forward(self, query, key, value, attention_mask):
+        net, attention_matrix = self.multi_head_attention(query, key, value, attention_mask)
         net = self.projection(net)
         net = net + query
         net = self.layer_normalization(net)
@@ -219,11 +219,14 @@ class MultiHeadAttention(t.nn.Module):
         #TODO check
         self.reshape_key = t.nn.Linear(input_size, hidden_size * num_head, bias=False)
         self.reshape_query = t.nn.Linear(input_size, hidden_size * num_head, bias=False)
+        self.reshape_value = t.nn.Linear(input_size, hidden_size * num_head, bias=False)
+
         self.self_attention = SelfAttention(hidden_size, dropout)
         t.nn.init.xavier_normal_(self.reshape_key.weight)
         t.nn.init.xavier_normal_(self.reshape_query.weight)
+        t.nn.init.xavier_normal_(self.reshape_value.weight)
 
-    def forward(self, query, key, attention_mask):
+    def forward(self, query, key, value, attention_mask):
         #TODO check
         # B, seqlenth, H
         batch_size, key_lenth, _ = key.size()
@@ -231,14 +234,17 @@ class MultiHeadAttention(t.nn.Module):
 
         key_ = self.reshape_key(key).view(batch_size, key_lenth, self.num_head, self.hidden_size)
         query_ = self.reshape_query(query).view(batch_size, query_lenth, self.num_head, self.hidden_size)
+        value_ = self.reshape_value(value).view(batch_size, key_lenth, self.num_head, self.hidden_size)
 
         key_ = key_.permute(2, 0, 1, 3).contiguous().view(-1, key_lenth, self.hidden_size)
         query_ = query_.permute(2, 0, 1, 3).contiguous().view(-1, query_lenth, self.hidden_size)
+        value_ = value_.permute(2, 0, 1, 3).contiguous().view(-1, key_lenth, self.hidden_size)
         key_ = self.drop(key_)
         query_ = self.drop(query_)
+        value_ = self.drop(value_)
 
         attention_mask = attention_mask.repeat(self.num_head, 1, 1)
-        output, attention_matrix = self.self_attention(query_, key_, attention_mask)
+        output, attention_matrix = self.self_attention(query_, key_, value_, attention_mask)
         output = output.view(self.num_head, batch_size, query_lenth, self.hidden_size)
         output = output.permute(1, 2, 0, 3).contiguous().view(batch_size, query_lenth, -1)
         return output, attention_matrix
@@ -250,7 +256,7 @@ class SelfAttention(t.nn.Module):
         self.C = hidden_size ** 0.5
         self.dropout = t.nn.Dropout(dropout)
 
-    def forward(self, query, key, attention_mask):
+    def forward(self, query, key, value, attention_mask):
         # B, seqlenth, H
         attention = t.bmm(query, key.transpose(1, 2)) / self.C
 
@@ -258,15 +264,15 @@ class SelfAttention(t.nn.Module):
         attention = t.nn.functional.softmax(attention, -1)
         attention = attention.masked_fill(t.isnan(attention), 0)
         attention = self.dropout(attention)
-        output = t.bmm(attention, key)
+        output = t.bmm(attention, value)
         return output, attention
 
 
 class FeedForward(t.nn.Module):
     def __init__(self, input_size, hidden_size, dropout):
         super(FeedForward, self).__init__()
-        self.linear1 = t.nn.Conv1d(input_size, input_size*2, 1)
-        self.linear2 = t.nn.Conv1d(input_size*2, input_size, 1)
+        self.linear1 = t.nn.Conv1d(input_size, input_size * 3, 1)
+        self.linear2 = t.nn.Conv1d(input_size * 3, input_size, 1)
         self.drop = t.nn.Dropout(dropout)
         self.relu = t.nn.ReLU()
         self.layer_normalization = LayerNormalization(input_size)
@@ -327,6 +333,7 @@ class PositionEncoding(t.nn.Module):
         positions = self.token2position(inputs)
         positions_encoded = self.position_encoding(positions)
         return positions_encoded
+
 
 
 if __name__ == '__main__':

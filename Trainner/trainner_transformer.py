@@ -100,6 +100,7 @@ class Trainner_transformer(object):
         optim.zero_grad()
         train_loss = self._data2loss(model, loss_func, data)
         train_loss.backward()
+        model.module.encoder.embedding.weight.grad.data[0] = 0
         t.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=5.0)
         optim.step_and_update_lr()
         self.summary_writer.add_scalar('loss/train_loss', train_loss.item(), self.global_step)

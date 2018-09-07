@@ -12,6 +12,7 @@ def Attention(encoder_hidden_states, encoder_lenths, step_hidden_state):
     :return:
     """
     corelation_vector = t.bmm(encoder_hidden_states, step_hidden_state.transpose(-1, -2))
+    corelation_vector = corelation_vector / (256 ** 0.5)
     # corelation_vector [B, E-seqlenth, 1]
     attention_vector = softmax_mask(corelation_vector, encoder_lenths)
     # attention_vector [B, 1, E-seqlenth]

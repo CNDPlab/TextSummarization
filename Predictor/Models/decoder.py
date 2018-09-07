@@ -26,10 +26,12 @@ class Decoder(t.nn.Module):
                             num_layers=num_layer
                             )
         self.teacher_forcing = True
-        self.merge_context_output = t.nn.Linear(hidden_size*2, hidden_size)
+        self.merge_context_output = t.nn.Linear(hidden_size+self.embedding_dim, self.embedding_dim)
         self.projection0 = t.nn.Linear(hidden_size*2, self.embedding_dim)
         self.projection = t.nn.Linear(self.embedding_dim, self.vocab_size)
+        #self.projection = t.nn.Linear(hidden_size * 2, self.vocab_size)
         self.projection_scale = self.embedding_dim ** -0.5
+        self.init_hidden_reshape = t.nn.Linear(hidden_size*2, hidden_size)
 
         t.nn.init.xavier_normal_(self.merge_context_output.weight)
         t.nn.init.xavier_normal_(self.projection.weight)
@@ -49,11 +51,16 @@ class Decoder(t.nn.Module):
         :return:
         """
         # set sos id as init input_token , encoders last hidden state as init hidden_state
+
         device = encoder_hidden_states.device
         batch_size = encoder_hidden_states.size()[0]
         hidden_size = encoder_hidden_states.size()[-1]
         token = t.Tensor([self.sos_id]*batch_size).long().to(device)
+
         hidden_state = decoder_init_state.transpose(0, 1).contiguous()
+        hidden_state = t.cat([hidden_state[0:hidden_state.size(0):2], hidden_state[1:hidden_state.size(0):2]], 2)
+        hidden_state = self.init_hidden_reshape(hidden_state)
+
         context_vector = t.zeros((batch_size, 1, hidden_size)).to(device)
         output_token_list = []
         output_token_list.append(token)
@@ -111,9 +118,9 @@ class Decoder(t.nn.Module):
         """
 
         input_vector = embedding(input_token.unsqueeze(-1))
-        # input_vector [B, 1, hidden_size]
+        # input_vector [B, 1, embedding_size]
         rnn_input = t.cat([input_vector, context_vector], -1)
-        # rnn_input [B, 1, hidden_size*2]
+        # rnn_input [B, 1, hidden_size+embedding_size]
         rnn_input = self.merge_context_output(rnn_input)
         output_state, hidden_state = self.rnn(rnn_input, input_hidden_state)
         # output_state [B, 1, hidden_size]
@@ -121,6 +128,9 @@ class Decoder(t.nn.Module):
         # attention_vector [B, seq_lenth, 1]
         # contexT_vector [B, seq_lenth, 1]
         output_state = self.projection(self.projection0(t.cat([output_state, context_vector], -1))) * self.projection_scale
+        # context_vector = t.nn.functional.normalize(context_vector,dim=0)
+        # output_state = t.nn.functional.normalize(output_state,dim=0)
+        #output_state = self.projection(t.cat([output_state, context_vector], -1)) * self.projection_scale
         output_prob = t.nn.functional.log_softmax(output_state, dim=-1)
         # output_state = self.projection(t.cat([output_state, context_vector], -1))
         # output_state = t.matmul(output_state, embedding.weight.data.transpose(0,1))

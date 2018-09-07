@@ -111,6 +111,7 @@ class Trainner(object):
         train_loss = self._data2loss(model, loss_func, data)
         #train_loss.requires_grad = True
         train_loss.backward()
+        model.embedding.weight.grad.data[0] = 0
         t.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=5.0)
         optimizer.step_and_update_lr()
 

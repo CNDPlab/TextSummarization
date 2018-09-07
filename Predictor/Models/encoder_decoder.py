@@ -1,6 +1,7 @@
 import torch as t
 from Predictor.Models import Encoder, Decoder, Decoder_mixloss, Decoder_noatt
 from configs import Config
+from Predictor.Utils.vocab import Vocab
 import ipdb
 
 
@@ -20,6 +21,7 @@ class EncoderDecoder(t.nn.Module):
         self.beam_size = args.beam_size
         self.decoding_max_lenth = args.decoding_max_lenth
         self.teacher_forcing = True
+
         self.embedding = t.nn.Embedding(self.vocab_size,
                                         self.embedding_size,
                                         padding_idx=self.padding_idx,
@@ -44,6 +46,11 @@ class EncoderDecoder(t.nn.Module):
 
     def forward(self, inputs, lenths, true_seq):
         self.decoder.teacher_forcing = self.teacher_forcing
+        # tsg word appeared in text
+        appeared_word = [0] * self.vocab_size
+        for i in range(self.vocab_size):
+            if i in inputs:
+                appeared_word[i] = 1
         net = self.embedding(inputs)
         hidden_states, final_states = self.encoder(net, lenths)
         output_token_list, output_hidden_state_list, sample_token_list, sample_hidden_state_list = self.decoder(true_seq=true_seq,

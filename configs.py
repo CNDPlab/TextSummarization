@@ -18,7 +18,7 @@ class Config(object):
     epochs = 50
     beam_size = 10
     num_head = 8
-    batch_size = 512
+    batch_size = 256
     padding_idx = 0
     hidden_size = 256
     dropout = 0
@@ -26,7 +26,7 @@ class Config(object):
     tf_ratio_decay_ratio = 0.9999
     mixed_loss_ratio = 0.5
     close_teacher_forcing_step = 50000
-    num_layers = 1
+    num_layers = 2
     num_model_tosave = 3
     sos_id = None
     eos_id = None

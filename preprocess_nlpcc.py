@@ -1,57 +1,47 @@
-# part 1 as train ,part3 with score 3,4,5 as test
-import pandas as pd
-from sklearn.model_selection import train_test_split
-from configs import Config
-from Predictor.Utils import Vocab
-import gc
-from tqdm import tqdm
-from concurrent.futures import ProcessPoolExecutor
 import json
+import gc
 import shutil
 import os
-from cytoolz import concatv
-import time
-import pickle as pk
-import gensim
-from Predictor.Utils.T_S.lang_conv import *
-import ipdb
-from sklearn.model_selection import train_test_split
-from configs import Config
+import numpy
+import pandas as pd
 from Predictor.Utils import Vocab
-from tqdm import tqdm
+from configs import Config
 from concurrent.futures import ProcessPoolExecutor
-from cytoolz import concatv
+from tqdm import tqdm
+import ipdb
 
-
-start = time.time()
 args = Config()
+train_file_name = 'Datas/NLPCC/toutiao4nlpcc/train_with_summ.txt'
+eval_file_name = 'Datas/NLPCC/toutiao4nlpcc/train_with_summ.txt'
+test_file_name = 'Datas/NLPCC/tasktestdata03/tasktestdata03.txt'
 
-with open(args.raw_folder+'DATA/PART_I.txt') as f:
-    train_raw = f.readlines()
-with open(args.raw_folder+'DATA/PART_III.txt') as f:
-    test_raw = f.readlines()
 
-train_df = pd.DataFrame({'score': [None for _ in range(len(train_raw[2::8]))],
-                         'summary': [i.strip() for i in train_raw[2::8]],
-                         'text': [i.strip() for i in train_raw[5::8]]})
-train_df, dev_df = train_test_split(train_df, test_size=0.0005)
-test_df = pd.DataFrame({'score': [int(i.strip()[13]) for i in test_raw[1::9]],
-                        'summary': [i.strip() for i in test_raw[3::9]],
-                        'text': [i.strip() for i in test_raw[6::9]]})
-test_df = test_df[test_df.score >= 3]
 
-del train_raw, test_raw
+with open(train_file_name) as f_:
+    train_raw = f_.readlines()
+with open(eval_file_name) as f_:
+    eval_raw = f_.readlines()
+with open(test_file_name) as f_:
+    test_raw = f_.readlines()
+
+
+
+train_df = pd.DataFrame({'summarization': [json.loads(i)['summarization'] for i in train_raw],
+                         'article': [json.loads(i)['article'] for i in train_raw]})
+
+eval_df = pd.DataFrame({'summarization': [json.loads(i)['summarization'] for i in eval_raw],
+                         'article': [json.loads(i)['article'] for i in eval_raw]})
+
+test_df = pd.DataFrame({'summarization': [json.loads(i)['summarization'] for i in test_raw],
+                         'article': [json.loads(i)['article'] for i in test_raw]})
+
+del train_raw, eval_raw, test_raw
 gc.collect()
 
+if os.path.exists(args.nlpcc_middle):
+    shutil.rmtree(args.nlpcc_middle)
 
-char_vocab = Vocab()
-word_vocab = Vocab()
-
-if os.path.exists(args.middle_folder):
-    shutil.rmtree(args.middle_folder)
-
-os.mkdir(args.middle_folder)
-
+os.mkdir(args.nlpcc_middle)
 
 def is_ustr(in_str):
     out_str = ''
@@ -73,26 +63,24 @@ def is_uchar(uchar):
     """判断一个unicode是否是英文字母"""
     if (uchar >= u'\u0041' and uchar<=u'\u005a') or (uchar >= u'\u0061' and uchar<=u'\u007a'):
             return True
-    if uchar in ('-', ',', '，', '。', '.', '?', ':', ';'):
+    if uchar in ('-', ',', '，', '。', '.', '?', ':', ';', '|'):
             return True
     return False
 
 stopwords = [line.strip() for line in open('Predictor/Utils/stopwords.dat.txt', 'r', encoding='utf-8').readlines()]
-converter = Converter('zh-hans')
 
 def process_data(data):
     data = data[1]
-    data['text'] = is_ustr(converter.convert(data.text))
-    data['summary'] = is_ustr(converter.convert(data.summary))
-    data['text_char'] = ['<BOS>'] + [i for i in data.text if i not in stopwords] + ['<EOS>']
-    data['summary_char'] = ['<BOS>'] + [i for i in data.summary if i not in stopwords] + ['<EOS>']
-    del data['text'], data['summary']
+    data['article'] = is_ustr(data.article.replace('<Paragraph>', '|'))
+    data['summarization'] = is_ustr(data.summarization)
+    data['article_char'] = ['<BOS>'] + [i for i in data.article if i not in stopwords] + ['<EOS>']
+    data['summarization_char'] = ['<BOS>'] + [i for i in data.summarization if i not in stopwords] + ['<EOS>']
+    del data['article'], data['summarization']
     line = {i: data[i] for i in data.keys()}
     return line
 
-
 def middle_process_save(df, set):
-    with open(args.middle_folder+set+'.json', 'w') as writer:
+    with open(args.nlpcc_middle+set+'.json', 'w') as writer:
         with ProcessPoolExecutor(10) as executor:
             result = executor.map(process_data, df.iterrows())
         nresult = []
@@ -102,13 +90,11 @@ def middle_process_save(df, set):
             json.dump(res, writer, ensure_ascii=False)
             writer.write('\n')
 
-
-middle_process_save(dev_df, 'dev')
+middle_process_save(eval_df, 'dev')
 middle_process_save(test_df, 'test')
 middle_process_save(train_df, 'train')
 
-##########################################
-
+#######
 
 class CharSentance(object):
     def __init__(self, args):

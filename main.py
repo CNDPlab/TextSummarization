@@ -5,10 +5,11 @@ import fire
 from Predictor.Utils import Vocab
 import pickle as pk
 from DataSets import DataSet, own_collate_fn
-from Predictor.Utils.loss import masked_cross_entropy, mixed_loss
+from Predictor.Utils.loss import masked_cross_entropy, mixed_loss, masked_cross_entropy2
 from Predictor.Utils import batch_scorer
-from Trainner import Trainner, Trainner_transformer
+from Trainner import Trainner
 from Predictor import Models
+from tqdm import tqdm
 import os
 import ipdb
 
@@ -16,18 +17,18 @@ import ipdb
 def train(**kwargs):
     args = Config()
     args.parse(kwargs)
-    loss_func = masked_cross_entropy
+    loss_func = masked_cross_entropy2
     score_func = batch_scorer
     train_set = DataSet(args.processed_folder+'train/')
     dev_set = DataSet(args.processed_folder+'dev/')
-    train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
+    train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn,num_workers=20, drop_last=True)
     dev_loader = DataLoader(dev_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
     vocab = pk.load(open('Predictor/Utils/vocab.pkl', 'rb'))
     eos_id, sos_id = vocab.token2id['<EOS>'], vocab.token2id['<BOS>']
     args.eos_id = eos_id
     args.sos_id = sos_id
     model = getattr(Models, args.model_name)(matrix=vocab.matrix, args=args)
-    trainner = Trainner_transformer(args, vocab)
+    trainner = Trainner(args, vocab)
     trainner.train(model, loss_func, score_func, train_loader, dev_loader, resume=args.resume)
 
 
@@ -55,13 +56,13 @@ def test(**kwargs):
     args.eos_id = eos_id
     args.sos_id = sos_id
     model = getattr(Models, args.model_name)(matrix=vocab.matrix, args=args)
-    load = _load('ckpt/20180829_043027/saved_models/2018_08_29_05_20_44T0.24485905526743618', model)
+    load = _load('ckpt/20180905_050558/saved_models/2018_09_05_10_09_51T0.26404303538086066', model)
     model = load['model']
     model.to('cuda')
     #TODO complete load_state_dict and predict
     model.teacher_forcing_ratio = -100
     with t.no_grad():
-        for data in test_loader:
+        for data in tqdm(test_loader,desc='test'):
             context, title, context_lenths, title_lenths = [i.to('cuda') for i in data]
             #token_id, prob_vector, token_lenth, attention_matrix = model.beam_forward(context, context_lenths)
             token_id = model.beam_forward(context, context_lenths)

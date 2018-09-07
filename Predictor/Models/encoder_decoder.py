@@ -1,6 +1,7 @@
 import torch as t
 from Predictor.Models import Encoder, Decoder, Decoder_mixloss, Decoder_noatt
 from configs import Config
+from Predictor.Utils.vocab import Vocab
 import ipdb
 
 
@@ -9,6 +10,8 @@ class EncoderDecoder(t.nn.Module):
         super(EncoderDecoder, self).__init__()
         self.vocab_size = matrix.shape[0]
         self.embedding_size = matrix.shape[1]
+        self.matrix = matrix
+        self.matrix[0] = 0
         self.padding_idx = args.padding_idx
         self.hidden_size = args.hidden_size
         self.dropout = args.dropout
@@ -17,11 +20,12 @@ class EncoderDecoder(t.nn.Module):
         self.eos_id = args.eos_id
         self.beam_size = args.beam_size
         self.decoding_max_lenth = args.decoding_max_lenth
-        self.teacher_forcing_ratio = 1
+        self.teacher_forcing = True
+
         self.embedding = t.nn.Embedding(self.vocab_size,
                                         self.embedding_size,
                                         padding_idx=self.padding_idx,
-                                        _weight=matrix)
+                                        _weight=self.matrix)
 
         self.encoder = Encoder(cell_type='GRU',
                                input_size=self.embedding_size,
@@ -29,7 +33,7 @@ class EncoderDecoder(t.nn.Module):
                                num_layers=self.num_layers,
                                dropout=self.dropout)
 
-        self.decoder = Decoder_mixloss(input_size=self.embedding_size,
+        self.decoder = Decoder(input_size=self.embedding_size,
                                hidden_size=self.hidden_size,
                                max_lenth=self.decoding_max_lenth,
                                sos_id=self.sos_id,
@@ -38,15 +42,23 @@ class EncoderDecoder(t.nn.Module):
                                num_layer=self.num_layers,
                                beam_size=self.beam_size)
 
+        self.decoder.projection.weight = self.embedding.weight
+
     def forward(self, inputs, lenths, true_seq):
-        self.decoder.teacher_forcing_ratio = self.teacher_forcing_ratio
+        self.decoder.teacher_forcing = self.teacher_forcing
+        # tsg word appeared in text
+        appeared_word = [0] * self.vocab_size
+        for i in range(self.vocab_size):
+            if i in inputs:
+                appeared_word[i] = 1
         net = self.embedding(inputs)
         hidden_states, final_states = self.encoder(net, lenths)
         output_token_list, output_hidden_state_list, sample_token_list, sample_hidden_state_list = self.decoder(true_seq=true_seq,
                                                                                      encoder_hidden_states=hidden_states,
                                                                                      decoder_init_state=final_states,
                                                                                      embedding=self.embedding,
-                                                                                     encoder_lenths=lenths)
+                                                                                     encoder_lenths=lenths,
+                                                                                     )
         return output_token_list, output_hidden_state_list, sample_token_list, sample_hidden_state_list
         # output_token_list, output_hidden_state_list, output_seq_lenth, attention_matrix = self.decoder(true_seq=true_seq,
         #                                                                              encoder_hidden_states=hidden_states,

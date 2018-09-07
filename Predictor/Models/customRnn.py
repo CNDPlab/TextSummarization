@@ -37,6 +37,7 @@ class CustomRnn(t.nn.Module):
         pass
 
     def forward(self, inputs, lenths):
+        #ipdb.set_trace()
         if isinstance(lenths, t.Tensor):
             lenths = lenths.cpu().tolist()
         device = inputs.device
@@ -57,7 +58,9 @@ class CustomRnn(t.nn.Module):
         hidden_states = hidden_states.index_select(index=unsorted_index, dim=0)
         last_states = last_states.transpose(0, 1).index_select(index=unsorted_index, dim=0)
         hidden_states = self.drop(self.hidden_states_reshape(hidden_states))
-        last_states = self.drop(self.final_state_reshape(t.cat(last_states.split(1, 1), -1)))
+        last_states = self.drop(last_states)
+        #last_states [B, num_layers * num_directions, hidden_size]
+        #last_states = self.drop(self.final_state_reshape(t.cat(last_states.split(1, 1), -1)))
 
         return hidden_states, last_states
 
@@ -98,8 +101,6 @@ if __name__ == '__main__':
     emb = t.nn.Embedding(10, 5, padding_idx=0)
     a = emb(a)
     b = CustomRnn('RNN', input_size=5, hidden_size=5, num_layers=1, dropout=0, bidirectional=True)
-    hidden_states, final_states = b(a, t.Tensor([3, 3]))
+    hidden_states, final_states = b(a, t.Tensor([2, 3]))
     print(hidden_states.shape)
     print(final_states.shape)
-
-

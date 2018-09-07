@@ -8,6 +8,7 @@ from Predictor.Utils import Vocab
 from configs import Config
 from concurrent.futures import ProcessPoolExecutor
 from tqdm import tqdm
+import ipdb
 
 args = Config()
 train_file_name = 'Datas/NLPCC/toutiao4nlpcc/train_with_summ.txt'
@@ -23,6 +24,8 @@ with open(eval_file_name) as f_:
 with open(test_file_name) as f_:
     test_raw = f_.readlines()
 
+
+
 train_df = pd.DataFrame({'summarization': [json.loads(i)['summarization'] for i in train_raw],
                          'article': [json.loads(i)['article'] for i in train_raw]})
 
@@ -34,8 +37,6 @@ test_df = pd.DataFrame({'summarization': [json.loads(i)['summarization'] for i i
 
 del train_raw, eval_raw, test_raw
 gc.collect()
-
-char_vocab = Vocab()
 
 if os.path.exists(args.nlpcc_middle):
     shutil.rmtree(args.nlpcc_middle)
@@ -62,7 +63,7 @@ def is_uchar(uchar):
     """判断一个unicode是否是英文字母"""
     if (uchar >= u'\u0041' and uchar<=u'\u005a') or (uchar >= u'\u0061' and uchar<=u'\u007a'):
             return True
-    if uchar in ('-', ',', '，', '。', '.', '?', ':', ';'):
+    if uchar in ('-', ',', '，', '。', '.', '?', ':', ';', '|'):
             return True
     return False
 
@@ -70,11 +71,11 @@ stopwords = [line.strip() for line in open('Predictor/Utils/stopwords.dat.txt', 
 
 def process_data(data):
     data = data[1]
-    data['article'] = is_ustr(data.text)
-    data['summarization'] = is_ustr(data.summary)
-    data['article_char'] = ['<BOS>'] + [i for i in data.text if i not in stopwords] + ['<EOS>']
-    data['summarization_char'] = ['<BOS>'] + [i for i in data.summary if i not in stopwords] + ['<EOS>']
-    del data['text'], data['summary']
+    data['article'] = is_ustr(data.article.replace('<Paragraph>', '|'))
+    data['summarization'] = is_ustr(data.summarization)
+    data['article_char'] = ['<BOS>'] + [i for i in data.article if i not in stopwords] + ['<EOS>']
+    data['summarization_char'] = ['<BOS>'] + [i for i in data.summarization if i not in stopwords] + ['<EOS>']
+    del data['article'], data['summarization']
     line = {i: data[i] for i in data.keys()}
     return line
 
@@ -92,3 +93,58 @@ def middle_process_save(df, set):
 middle_process_save(eval_df, 'dev')
 middle_process_save(test_df, 'test')
 middle_process_save(train_df, 'train')
+
+#######
+
+class CharSentance(object):
+    def __init__(self, args):
+        self.path = args.middle_folder+'train.json'
+        with open(self.path) as reader:
+            self.lines = reader.readlines()
+        self.text_char = [json.loads(i)['text_char'] for i in self.lines]
+        self.summary_char = [json.loads(i)['summary_char'] for i in self.lines]
+
+    def __iter__(self):
+        for i in concatv(self.text_char, self.summary_char):
+            yield i
+
+
+sentance = CharSentance(args)
+vocab = Vocab()
+for i in tqdm(sentance):
+    vocab.add_sentance(i)
+
+
+model = gensim.models.FastText(size=args.embedding_dim, min_count=200, workers=16)
+model.build_vocab(sentance)
+print('building vocab')
+model.train(sentance, total_examples=model.corpus_count, epochs=model.iter)
+
+vocab.filter_rare_word_build_vocab(200)
+vocab.use_pretrained(model)
+vocab.save(args.saved_vocab)
+
+vocab = pk.load(open(args.saved_vocab, 'rb'))
+
+
+if os.path.exists(args.processed_folder):
+    shutil.rmtree(args.processed_folder)
+os.mkdir(args.processed_folder)
+
+
+def convert_save(set='test'):
+    os.mkdir(args.processed_folder+set+'/')
+    with open(args.middle_folder+set+'.json') as reader:
+        for index, line in tqdm(enumerate(reader), desc=set):
+            nline = json.loads(line)
+            nline['text_id'] = [vocab.from_token_id(i) for i in nline['text_char']]
+            nline['summary_id'] = [vocab.from_token_id(i) for i in nline['summary_char']]
+            with open(args.processed_folder+set+'/' + str(index)+'.json', 'w') as writer:
+                json.dump(nline, writer, ensure_ascii=False)
+
+
+convert_save('dev')
+convert_save('test')
+convert_save('train')
+end = time.time()
+print(f'use {end-start}s')

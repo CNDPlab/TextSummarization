@@ -157,8 +157,8 @@ def convert_save(set='test'):
     with open(args.nlpcc_middle+set+'.json') as reader:
         for index, line in tqdm(enumerate(reader), desc=set):
             nline = json.loads(line)
-            nline['article_id'] = [vocab.from_token_id(i) for i in nline['article_char']]
-            nline['summarization_id'] = [vocab.from_token_id(i) for i in nline['summarization_char']]
+            nline['text_id'] = [vocab.from_token_id(i) for i in nline['article_char']]
+            nline['summary_id'] = [vocab.from_token_id(i) for i in nline['summarization_char']]
             with open(args.nlpcc_processed+set+'/' + str(index)+'.json', 'w') as writer:
                 json.dump(nline, writer, ensure_ascii=False)
 

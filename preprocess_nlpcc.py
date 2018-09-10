@@ -31,9 +31,9 @@ with open(eval_file_name) as f_:
 with open(test_file_name) as f_:
     test_raw = f_.readlines()
 
-train_raw = train_raw[:100]
-eval_raw = eval_raw[:10]
-test_raw = test_raw[:10]
+# train_raw = train_raw[:100]
+# eval_raw = eval_raw[:10]
+# test_raw = test_raw[:10]
 
 train_df = pd.DataFrame({'summarization': [json.loads(i)['summarization'] for i in train_raw],
                          'article': [json.loads(i)['article'] for i in train_raw]})

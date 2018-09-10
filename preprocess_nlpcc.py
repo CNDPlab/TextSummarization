@@ -76,14 +76,24 @@ def is_uchar(uchar):
             return True
     return False
 
+stopwords = [line.strip() for line in open('Predictor/Utils/stopwords.dat.txt', 'r', encoding='utf-8').readlines()]
 
 def remove(text):
     text = text.replace('<Paragraph>', '')
-    text = re.sub(r'\(.*\)', '', text)
-    text = re.sub(r'\（.*\）', '', text)
-    text = re.sub(r'\[.*\]', '', text)
-    text = re.sub(r'\{.*\}', '', text)
-    text = re.sub(r'\【.*\】', '', text)
+    #text = re.sub(r'\([^)]*\)', '', text)
+    #text = re.sub(r'\{.*\}', '', text)
+    #text = re.sub(r'\（.*\）', '', text)
+    text = re.sub(r'\([^()]*\)', '', text)
+
+    text = re.sub(r'\（[^（）]*\）', '', text)
+
+    text = re.sub(r'\[[^]]*\]', '', text)
+
+    text = re.sub(r'\{[^{}]*\}', '', text)
+    text = re.sub(r'\{[^{}]*\}', '', text)
+
+    text = re.sub(r'\【[^【】]*\】', '', text)
+
     return text
 
 def process_data(data):
@@ -91,6 +101,8 @@ def process_data(data):
     #data['article'] = is_ustr(data.article.replace('<Paragraph>', ''))
     data['article'] = is_ustr(remove(data.article))
     data['summarization'] = is_ustr(remove(data.summarization))
+    data['article'] = data['article'][:490]
+    data['article'] = data['article'][:data['article'].rfind('。')+1]
     data['article_char'] = ['<BOS>'] + [i for i in data['article']] + ['<EOS>']
     data['summarization_char'] = ['<BOS>'] + [i for i in data['summarization']] + ['<EOS>']
     del data['article'], data['summarization']

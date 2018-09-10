@@ -19,7 +19,7 @@ import gensim
 start = time.time()
 args = Config()
 train_file_name = 'Datas/NLPCC/toutiao4nlpcc/train_with_summ.txt'
-eval_file_name = 'Datas/NLPCC/toutiao4nlpcc/train_with_summ.txt'
+eval_file_name = 'Datas/NLPCC/toutiao4nlpcc_eval/evaluation_with_ground_truth.txt'
 test_file_name = 'Datas/NLPCC/tasktestdata03/tasktestdata03.txt'
 
 
@@ -76,7 +76,6 @@ def is_uchar(uchar):
             return True
     return False
 
-stopwords = [line.strip() for line in open('Predictor/Utils/stopwords.dat.txt', 'r', encoding='utf-8').readlines()]
 
 def remove(text):
     text = text.replace('<Paragraph>', '')
@@ -92,8 +91,8 @@ def process_data(data):
     #data['article'] = is_ustr(data.article.replace('<Paragraph>', ''))
     data['article'] = is_ustr(remove(data.article))
     data['summarization'] = is_ustr(remove(data.summarization))
-    data['article_char'] = ['<BOS>'] + [i for i in data['article'] if i not in stopwords] + ['<EOS>']
-    data['summarization_char'] = ['<BOS>'] + [i for i in data['summarization'] if i not in stopwords] + ['<EOS>']
+    data['article_char'] = ['<BOS>'] + [i for i in data['article']] + ['<EOS>']
+    data['summarization_char'] = ['<BOS>'] + [i for i in data['summarization']] + ['<EOS>']
     del data['article'], data['summarization']
     line = {i: data[i] for i in data.keys()}
     return line

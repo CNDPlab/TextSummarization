@@ -80,12 +80,20 @@ stopwords = [line.strip() for line in open('Predictor/Utils/stopwords.dat.txt', 
 
 def remove(text):
     text = text.replace('<Paragraph>', '')
-    text = re.sub(r'\(.*\)', '', text)
-    text = re.sub(r'\（.*\）', '', text)
-    text = re.sub(r'\[.*\]', '', text)
-    text = re.sub(r'\{.*\}', '', text)
-    text = re.sub(r'\【.*\】', '', text)
-    text = re.sub(r'\（.*\）', '', text)
+    #text = re.sub(r'\([^)]*\)', '', text)
+    #text = re.sub(r'\{.*\}', '', text)
+    #text = re.sub(r'\（.*\）', '', text)
+    text = re.sub(r'\([^()]*\)', '', text)
+
+    text = re.sub(r'\（[^（）]*\）', '', text)
+
+    text = re.sub(r'\[[^]]*\]', '', text)
+
+    text = re.sub(r'\{[^{}]*\}', '', text)
+    text = re.sub(r'\{[^{}]*\}', '', text)
+
+    text = re.sub(r'\【[^【】]*\】', '', text)
+
     return text
 
 def process_data(data):

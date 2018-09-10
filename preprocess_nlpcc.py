@@ -19,7 +19,7 @@ import gensim
 start = time.time()
 args = Config()
 train_file_name = 'Datas/NLPCC/toutiao4nlpcc/train_with_summ.txt'
-eval_file_name = 'Datas/NLPCC/toutiao4nlpcc/train_with_summ.txt'
+eval_file_name = 'Datas/NLPCC/toutiao4nlpcc_eval/evaluation_with_ground_truth.txt'
 test_file_name = 'Datas/NLPCC/tasktestdata03/tasktestdata03.txt'
 
 
@@ -31,9 +31,9 @@ with open(eval_file_name) as f_:
 with open(test_file_name) as f_:
     test_raw = f_.readlines()
 
-# train_raw = train_raw[:100]
-# eval_raw = eval_raw[:10]
-# test_raw = test_raw[:10]
+train_raw = train_raw[:100]
+eval_raw = eval_raw[:10]
+test_raw = test_raw[:10]
 
 train_df = pd.DataFrame({'summarization': [json.loads(i)['summarization'] for i in train_raw],
                          'article': [json.loads(i)['article'] for i in train_raw]})
@@ -84,6 +84,7 @@ def remove(text):
     text = re.sub(r'\[.*\]', '', text)
     text = re.sub(r'\{.*\}', '', text)
     text = re.sub(r'\【.*\】', '', text)
+    text = re.sub(r'\（.*\）', '', text)
     return text
 
 def process_data(data):
@@ -91,8 +92,10 @@ def process_data(data):
     #data['article'] = is_ustr(data.article.replace('<Paragraph>', ''))
     data['article'] = is_ustr(remove(data.article))
     data['summarization'] = is_ustr(remove(data.summarization))
-    data['article_char'] = ['<BOS>'] + [i for i in data['article'] if i not in stopwords] + ['<EOS>']
-    data['summarization_char'] = ['<BOS>'] + [i for i in data['summarization'] if i not in stopwords] + ['<EOS>']
+    data['article'] = data['article'][:490]
+    data['article'] = data['article'][:data['article'].rfind('。')+1]
+    data['article_char'] = ['<BOS>'] + [i for i in data['article']] + ['<EOS>']
+    data['summarization_char'] = ['<BOS>'] + [i for i in data['summarization']] + ['<EOS>']
     del data['article'], data['summarization']
     line = {i: data[i] for i in data.keys()}
     return line

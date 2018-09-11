@@ -127,8 +127,8 @@ def process_data(data):
     #data['article'] = is_ustr(data.article.replace('<Paragraph>', ''))
     data['article'] = is_ustr(remove(strq2b(data.article)))
     data['summarization'] = is_ustr(remove(data.summarization))
-    data['article'] = data['article'][:490]
-    if len(data['article']) > 450:
+    data['article'] = data['article'][:400]
+    if len(data['article']) > 350:
         data['article'] = data['article'][:data['article'].rfind('。')+1]
     data['article_char'] = ['<BOS>'] + [i for i in data['article']] + ['<EOS>']
     data['summarization_char'] = ['<BOS>'] + [i for i in data['summarization']] + ['<EOS>']
@@ -154,24 +154,48 @@ middle_process_save(train_df, 'train')
 
 #######
 
+corpus = []
+
+for line in tqdm(train_df.iterrows(), desc='splitting.'):
+    for i in line[1].summary.split('。'):
+        if i != '':
+            corpus.append(i + '。')
+    for i in line[1].text.split('。'):
+        if i != '':
+            corpus.append(i + '。')
+
+del train_df
+gc.collect()
+
 class CharSentance(object):
-    def __init__(self, args):
-        self.path = args.sog_middle+'train.json'
-        with open(self.path) as reader:
-            self.lines = reader.readlines()
-        self.text_char = [json.loads(i)['article_char'] for i in self.lines]
-        self.summary_char = [json.loads(i)['summarization_char'] for i in self.lines]
+    def __init__(self, corpus):
+        self.corpus = corpus
 
     def __iter__(self):
-        for i in tqdm(concatv(self.text_char, self.summary_char)):
-            yield i
+        for i in tqdm(self.corpus, desc='itering'):
+            yield ['<BOS>'] + list(i) + ['<EOS>']
 
 
-sentance = CharSentance(args)
+# class CharSentance(object):
+#     def __init__(self, args):
+#         self.path = args.sog_middle+'train.json'
+#         with open(self.path) as reader:
+#             self.lines = reader.readlines()
+#         self.text_char = [json.loads(i)['article_char'] for i in self.lines]
+#         self.summary_char = [json.loads(i)['summarization_char'] for i in self.lines]
+#
+#     def __iter__(self):
+#         for i in tqdm(concatv(self.text_char, self.summary_char)):
+#             yield i
+
+
+sentance = CharSentance(corpus)
+del corpus
+gc.collect()
+
 vocab = Vocab()
-for i in tqdm(sentance):
+for i in sentance:
     vocab.add_sentance(i)
-
 
 model = gensim.models.FastText(size=args.embedding_dim, min_count=200, workers=16)
 model.build_vocab(sentance)

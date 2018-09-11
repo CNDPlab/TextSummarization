@@ -157,10 +157,10 @@ middle_process_save(train_df, 'train')
 corpus = []
 
 for line in tqdm(train_df.iterrows(), desc='splitting.'):
-    for i in line[1].summary.split('。'):
+    for i in line[1].summarization.split('。'):
         if i != '':
             corpus.append(i + '。')
-    for i in line[1].text.split('。'):
+    for i in line[1].article.split('。'):
         if i != '':
             corpus.append(i + '。')
 

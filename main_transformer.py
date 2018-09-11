@@ -19,8 +19,8 @@ def train(**kwargs):
     args.parse(kwargs)
     loss_func = loss_function
     score_func = batch_scorer
-    train_set = DataSet(args.processed_folder+'train/')
-    dev_set = DataSet(args.processed_folder+'dev/')
+    train_set = DataSet(args.nlpcc_processed+'train/')
+    dev_set = DataSet(args.nlpcc_processed+'dev/')
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn, num_workers=20)
     dev_loader = DataLoader(dev_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
     vocab = pk.load(open('Predictor/Utils/vocab.pkl', 'rb'))
@@ -92,4 +92,4 @@ def test(**kwargs):
 
 if __name__ == '__main__':
     fire.Fire()
-'ckpt/20180830_051617/saved_models/2018_08_31_02_25_20T0.5548261015895142/model'
+#'ckpt/20180830_051617/saved_models/2018_08_31_02_25_20T0.5548261015895142/model'

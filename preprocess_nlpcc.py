@@ -76,10 +76,23 @@ def is_uchar(uchar):
             return True
     return False
 
-stopwords = [line.strip() for line in open('Predictor/Utils/stopwords.dat.txt', 'r', encoding='utf-8').readlines()]
+def strq2b(ustring):
+    rstring = ""
+    for uchar in ustring:
+        inside_code=ord(uchar)
+        if inside_code == 12288:#全角空格直接转换
+            inside_code = 32
+        if inside_code == 58380:
+            inside_code = 32
+        elif (inside_code >= 65281 and inside_code <= 65374):#全角字符（除空格）根据关系转化
+            inside_code -= 65248
+        rstring += chr(inside_code)
+    return rstring
 
 def remove(text):
-    text = text.replace('<Paragraph>', '')
+    text = text.replace('<Paragraph>', '。')
+    text = text.replace('！', '。')
+    text = text.replace('：', ':')
     #text = re.sub(r'\([^)]*\)', '', text)
     #text = re.sub(r'\{.*\}', '', text)
     #text = re.sub(r'\（.*\）', '', text)
@@ -99,10 +112,11 @@ def remove(text):
 def process_data(data):
     data = data[1]
     #data['article'] = is_ustr(data.article.replace('<Paragraph>', ''))
-    data['article'] = is_ustr(remove(data.article))
+    data['article'] = is_ustr(remove(strq2b(data.article)))
     data['summarization'] = is_ustr(remove(data.summarization))
     data['article'] = data['article'][:490]
-    data['article'] = data['article'][:data['article'].rfind('。')+1]
+    if len(data['article']) > 450:
+        data['article'] = data['article'][:data['article'].rfind('。')+1]
     data['article_char'] = ['<BOS>'] + [i for i in data['article']] + ['<EOS>']
     data['summarization_char'] = ['<BOS>'] + [i for i in data['summarization']] + ['<EOS>']
     del data['article'], data['summarization']
@@ -115,7 +129,8 @@ def middle_process_save(df, set):
             result = executor.map(process_data, df.iterrows())
         nresult = []
         for i in tqdm(result, desc='append'):
-            nresult.append(i)
+            if len(i['article_char']) > 17:
+                nresult.append(i)
         for res in tqdm(nresult):
             json.dump(res, writer, ensure_ascii=False)
             writer.write('\n')
@@ -180,3 +195,20 @@ convert_save('test')
 convert_save('train')
 end = time.time()
 print(f'use {end-start}s')
+
+
+"""
+for i in range(1000):
+    raw = open('NLPCC/toutiao4nlpcc_eval/evaluation_with_ground_truth.txt').readlines()
+    middle = json.loads(open('nlpcc_middle/dev.json').readlines()[i])
+    processed = json.load(open('nlpcc_processed/dev/'+str(i)+'.json'))
+    print(''.join(json.loads(raw[i])['article'])[:600])
+    print('------------------')
+    print(''.join(middle['article_char']))
+    print('------------------')
+    print(''.join(processed['article_char']))
+    print('=====================================')
+    inputs = input('next:')
+    ...:
+    
+    """

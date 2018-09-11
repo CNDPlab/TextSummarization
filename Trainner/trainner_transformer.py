@@ -76,6 +76,8 @@ class Trainner_transformer(object):
             optim = loaded['optim']
             model = loaded['model']
             print(self.global_step, self.global_epoch)
+            ##################################
+            self.global_step = 0
         self.summary_writer = SummaryWriter(self.tensorboard_root)
         print(f'summary writer running in:')
         print(f'tensorboard --logdir {self.tensorboard_root}')

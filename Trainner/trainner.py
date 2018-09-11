@@ -72,7 +72,7 @@ class Trainner(object):
             os.mkdir(self.model_root)
         model.to(self.device)
         self.teacher_forcing_ratio = teacher_forcing_ratio
-        optim = t.optim.Adam(model.parameters())
+        optim = t.optim.Adam([i for i in model.parameters() if i.requires_grad is True])
         optimizer = ScheduledOptim(optim, self.args.embedding_dim, 4000, n_current_steps=self.global_step)
         if resume:
             loaded = self._load(self.get_latest_cpath(), model)
@@ -94,11 +94,11 @@ class Trainner(object):
         for data in tqdm(train_loader, desc='train step'):
             model.teacher_forcing = False
             self._train_step(model, optimizer, loss_func, data)
-            if self.global_step >= self.args.close_teacher_forcing_step:
-                self.teacher_forcing_ratio = -100
-            else:
-                self.teacher_forcing_ratio -= self.args.tf_ratio_decay_ratio
-
+            # if self.global_step >= self.args.close_teacher_forcing_step:
+            #     self.teacher_forcing_ratio = -100
+            # else:
+            #     self.teacher_forcing_ratio -= self.args.tf_ratio_decay_ratio
+            self.teacher_forcing_ratio = -100
             if self.global_step % self.args.eval_every_step == 0:
                 model.teacher_forcing_ratio = -100
                 score = self._eval(model, loss_func, score_func, dev_loader)

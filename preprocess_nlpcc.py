@@ -150,7 +150,7 @@ class CharSentance(object):
         self.summary_char = [json.loads(i)['summarization_char'] for i in self.lines]
 
     def __iter__(self):
-        for i in concatv(self.text_char, self.summary_char):
+        for i in tqdm(concatv(self.text_char, self.summary_char)):
             yield i
 
 
@@ -196,19 +196,19 @@ convert_save('train')
 end = time.time()
 print(f'use {end-start}s')
 
-
-"""
-for i in range(1000):
-    raw = open('NLPCC/toutiao4nlpcc_eval/evaluation_with_ground_truth.txt').readlines()
-    middle = json.loads(open('nlpcc_middle/dev.json').readlines()[i])
-    processed = json.load(open('nlpcc_processed/dev/'+str(i)+'.json'))
-    print(''.join(json.loads(raw[i])['article'])[:600])
-    print('------------------')
-    print(''.join(middle['article_char']))
-    print('------------------')
-    print(''.join(processed['article_char']))
-    print('=====================================')
-    inputs = input('next:')
-    ...:
-    
-    """
+#
+# """
+# for i in range(1000):
+#     raw = open('NLPCC/toutiao4nlpcc_eval/evaluation_with_ground_truth.txt').readlines()
+#     middle = json.loads(open('nlpcc_middle/dev.json').readlines()[i])
+#     processed = json.load(open('nlpcc_processed/dev/'+str(i)+'.json'))
+#     print(''.join(json.loads(raw[i])['article'])[:600])
+#     print('------------------')
+#     print(''.join(middle['article_char']))
+#     print('------------------')
+#     print(''.join(processed['article_char']))
+#     print('=====================================')
+#     inputs = input('next:')
+#     ...:
+#
+#     """

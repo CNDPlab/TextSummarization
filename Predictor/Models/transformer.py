@@ -349,14 +349,20 @@ if __name__ == '__main__':
     mm = t.nn.DataParallel(transformer).cuda()
 #    output = transformer(inputs)
 #    output2 = transformer(inputs)
-    mm.load_state_dict(t.load('ckpt/20180830_051617/saved_models/2018_08_31_02_25_20T0.5548261015895142/model'))
+    mm.load_state_dict(t.load('ckpt/bak/20180905_031423/saved_models/2018_09_09_13_08_05T0.5764793283712836/model'))
     from torch.utils.data import Dataset, DataLoader
     from DataSets import DataSet
     from DataSets import own_collate_fn
     from Predictor.Utils import batch_scorer
-    train_set = DataSet(args.processed_folder+'train/')
-    dev_set = DataSet(args.processed_folder+'dev/')
-    test_set = DataSet(args.processed_folder+'test/')
+    # train_set = DataSet(args.processed_folder+'train/')
+    # dev_set = DataSet(args.processed_folder+'dev/')
+    # test_set = DataSet(args.processed_folder+'test/')
+    # train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
+    # dev_loader = DataLoader(dev_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
+    # test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
+    train_set = DataSet(args.nlpcc_processed+'train/')
+    dev_set = DataSet(args.nlpcc_processed+'dev/')
+    test_set = DataSet(args.nlpcc_processed+'test/')
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
     dev_loader = DataLoader(dev_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
     test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
@@ -364,7 +370,7 @@ if __name__ == '__main__':
     eos_id, sos_id = vocab.token2id['<EOS>'], vocab.token2id['<BOS>']
     mm.eval()
     with t.no_grad():
-        for data in test_loader:
+        for data in dev_loader:
             context, title, context_lenths, title_lenths = [i.to('cuda') for i in data]
             token_id, prob_vector = mm.module.greedy_search(context)
             score = batch_scorer(token_id.tolist(), title.tolist(), args.eos_id)

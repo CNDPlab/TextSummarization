@@ -144,7 +144,7 @@ class Decoder(t.nn.Module):
                 return False
         return True
 
-    def beam_search_forward(self, input_token, input_hidden_state, embedding, encoder_hidden_states, encoder_lenths, context_vector):
+    def beam_search_step(self, input_token, input_hidden_state, embedding, encoder_hidden_states, encoder_lenths, context_vector):
 
         input_vector = embedding(input_token.unsqueeze(-1))
         rnn_input = t.cat([input_vector, context_vector], -1)
@@ -159,7 +159,7 @@ class Decoder(t.nn.Module):
         output_token = output_token.topk(self.beam_size)[1]
         return output_token, output_prob, hidden_state, attention_vector, context_vector
 
-    def beam_search_step(self, decoder_init_state=None, top_seqs=None, embedding=None, encoder_hidden_states=None, encoder_lenths=None):
+    def beam_search_forward(self, decoder_init_state=None, top_seqs=None, embedding=None, encoder_hidden_states=None, encoder_lenths=None):
         all_seqs = []
         device = encoder_hidden_states.device
         hidden_size = encoder_hidden_states.size()[-1]
@@ -174,7 +174,7 @@ class Decoder(t.nn.Module):
             input_hidden_state = decoder_init_state.transpose(0, 1)
             for i_id in seq_id:
                 _word, _prob, input_hidden_state, attention_vector, context_vector = \
-                    self.beam_search_forward(t.Tensor([i_id]).long().to(device), input_hidden_state, embedding, encoder_hidden_states, encoder_lenths, context_vector)
+                    self.beam_search_step(t.Tensor([i_id]).long().to(device), input_hidden_state, embedding, encoder_hidden_states, encoder_lenths, context_vector)
             for i in range(self.beam_size):
                 temp = seq_id
                 word = _word[0][0][i].item()
@@ -192,9 +192,8 @@ class Decoder(t.nn.Module):
         # START
         top_seqs = [[[self.sos_id], 1.0]]
         # loop
-
         for _ in range(self.max_lenth):
-            top_seqs, all_done = self.beam_search_step(decoder_init_state, top_seqs, embedding, encoder_hidden_states, encoder_lenths)
+            top_seqs, all_done = self.beam_search_forward(decoder_init_state, top_seqs, embedding, encoder_hidden_states, encoder_lenths)
             if all_done:
                 break
         top_seq = sorted(top_seqs, key=lambda seq: seq[1], reverse=True)[0]

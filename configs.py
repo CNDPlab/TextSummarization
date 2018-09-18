@@ -14,7 +14,7 @@ class Config(object):
     saved_vocab = 'Predictor/Utils/vocab.pkl'
     ckpt_root = 'ckpt/'
     saved_model_root = 'ckpt/saved_models/'
-    model_name = 'EncoderDecoder'
+    model_name = 'Transformer'
     resume = False
     device = 'cuda:1'
     exp_root = None
@@ -24,16 +24,16 @@ class Config(object):
     epochs = 50
     beam_size = 10
     num_head = 8
-    batch_size = 128
+    batch_size = 64
     padding_idx = 0
     hidden_size = 64
-    dropout = 0
+    dropout = 0.1
     num_layers = 1
     num_model_tosave = 3
     sos_id = None
     eos_id = None
     decoding_max_lenth = 50
-    eval_every_step = 200
+    eval_every_step = 2000
     save_every_step = 4000
     unk_ratio = 0.3
 

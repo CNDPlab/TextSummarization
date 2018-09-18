@@ -23,14 +23,12 @@ class Transformer(t.nn.Module):
         self.decoder.embedding.weight = self.encoder.embedding.weight
         self.decoder.projection.weight = self.encoder.embedding.weight
 
-
     def forward(self, inputs, targets):
         targets = targets[:, :-1].contiguous()
         input_mask = inputs.eq(0).data
         encoder_outputs = self.encoder(inputs)
         tokens, probs = self.decoder(decoder_inputs=targets, encoder_outputs=encoder_outputs, encoder_mask=input_mask)
         return tokens, probs
-
 
     def greedy_search(self, inputs, decode_lenth=None, if_sample=False):
         batch_size = inputs.size()[0]
@@ -55,6 +53,8 @@ class Transformer(t.nn.Module):
                 probs = t.cat([probs, output_probs], -2)
         return tokens, t.nn.functional.log_softmax(probs[:, 1:, :], -1)
 
+    def beam_search(self, inputs, decode_lenth=None):
+        pass
 
 
     #
@@ -113,7 +113,6 @@ class Decoder(t.nn.Module):
     def get_pad_mask(self, inputs):
         mask = inputs.ne(0).data.float()
         return mask
-
 
     def forward(self, decoder_inputs, encoder_outputs, encoder_mask):
 
@@ -356,7 +355,7 @@ if __name__ == '__main__':
     from Predictor.Utils import batch_scorer
     # train_set = DataSet(args.processed_folder+'train/')
     # dev_set = DataSet(args.processed_folder+'dev/')
-    # test_set = DataSet(args.processed_folder+'test/')
+    # test_set = DataSet(args.processed_folder+'t est/')
     # train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
     # dev_loader = DataLoader(dev_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
     # test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)

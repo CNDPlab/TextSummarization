@@ -4,9 +4,9 @@ import warnings
 class Config(object):
     datas_root = 'Datas/'
     raw_folder = 'Datas/LCSTS2.0/'
-    sog_raw = 'Datas/raw/'
-    sog_middle = 'Datas/sog_middle/'
-    sog_processed = 'Datas/sog_processed/'
+    sog_raw = 'Datas/Sougou/'
+    sog_middle = 'Datas/Sougou/sog_middle/'
+    sog_processed = 'Datas/Sougou/sog_processed/'
     middle_folder = 'Datas/middle/'
     processed_folder = 'Datas/processed/'
     nlpcc_middle = 'Datas/nlpcc_middle/'

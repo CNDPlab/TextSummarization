@@ -48,6 +48,7 @@ else:
     pk.dump(ctt, open(args.sog_raw+'ctt.pk', 'wb'))
 
 
+
 ###########################################################################
 df = pd.DataFrame({'summarization': [i for i in ctt],
                     'article': [i for i in ct]})
@@ -132,7 +133,7 @@ def process_data(data):
         data['article'] = data['article'][:data['article'].rfind('。')+1]
     data['article_char'] = ['<BOS>'] + [i for i in data['article']] + ['<EOS>']
     data['summarization_char'] = ['<BOS>'] + [i for i in data['summarization']] + ['<EOS>']
-    del data['article'], data['summarization']
+    #del data['article'], data['summarization']
     line = {i: data[i] for i in data.keys()}
     return line
 
@@ -147,16 +148,21 @@ def middle_process_save(df, set):
         for res in tqdm(nresult):
             json.dump(res, writer, ensure_ascii=False)
             writer.write('\n')
+    if set == 'train':
+        middle_df = pd.DataFrame({'summarization': [i['summarization'] for i in nresult],
+                    'article': [i['article'] for i in nresult]})
+        return middle_df
+
 
 middle_process_save(eval_df, 'dev')
 middle_process_save(test_df, 'test')
-middle_process_save(train_df, 'train')
+middle_df = middle_process_save(train_df, 'train')
 
 #######
 
 corpus = []
 
-for line in tqdm(train_df.iterrows(), desc='splitting.'):
+for line in tqdm(middle_df.iterrows(), desc='splitting.'):
     for i in line[1].summarization.split('。'):
         if i != '':
             corpus.append(i + '。')
@@ -164,7 +170,7 @@ for line in tqdm(train_df.iterrows(), desc='splitting.'):
         if i != '':
             corpus.append(i + '。')
 
-del train_df
+del train_df, middle_df, eval_df, test_df
 gc.collect()
 
 class CharSentance(object):

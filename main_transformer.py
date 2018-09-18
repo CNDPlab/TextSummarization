@@ -18,11 +18,11 @@ def train(**kwargs):
     args.parse(kwargs)
     loss_func = loss_function
     score_func = batch_scorer
-    train_set = DataSet(args.nlpcc_processed+'train/')
-    dev_set = DataSet(args.nlpcc_processed+'dev/')
+    train_set = DataSet(args.sog_processed+'train/')
+    dev_set = DataSet(args.sog_processed+'dev/')
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn, num_workers=20)
     dev_loader = DataLoader(dev_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
-    vocab = pk.load(open('Predictor/Utils/vocab.pkl', 'rb'))
+    vocab = pk.load(open('Predictor/Utils/sogou_vocab.pkl', 'rb'))
     eos_id, sos_id = vocab.token2id['<EOS>'], vocab.token2id['<BOS>']
     args.eos_id = eos_id
     args.sos_id = sos_id

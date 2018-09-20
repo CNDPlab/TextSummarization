@@ -14,7 +14,6 @@ class Encoder(t.nn.Module):
                              )
 
     def forward(self, inputs, lenths):
-
         hidden_states, last_states = self.rnn(inputs, lenths)
         return hidden_states, last_states
 

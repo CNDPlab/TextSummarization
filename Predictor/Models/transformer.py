@@ -462,7 +462,8 @@ if __name__ == '__main__':
     mm = t.nn.DataParallel(transformer).cuda()
 #    output = transformer(inputs)
 #    output2 = transformer(inputs)
-    mm.load_state_dict(t.load('ckpt/20180913_233530/saved_models/2018_09_16_18_31_10T0.6108602118195541/model'))
+
+    mm.load_state_dict(t.load('ckpt/20180917_013109/saved_models/2018_09_19_20_59_40T0.6189638015616438/model'))
     from torch.utils.data import Dataset, DataLoader
     from DataSets import DataSet
     from DataSets import own_collate_fn

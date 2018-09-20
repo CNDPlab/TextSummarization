@@ -19,17 +19,22 @@ class Transformer(t.nn.Module):
         self.decode_max_lenth = 50
         self.sos_id = args.sos_id
         self.encoder = Encoder(self.num_head, self.input_size, self.hidden_size, self.dropout, self.num_block, matrix, self.encoder_max_lenth)
-        self.decoder = Decoder(self.num_head, self.input_size, self.hidden_size, self.dropout, self.num_block, matrix, self.encoder_max_lenth)
+        self.decoder = Beam_Decoder(args, self.num_head, self.input_size, self.hidden_size, self.dropout, self.num_block, matrix, self.encoder_max_lenth)
         self.decoder.embedding.weight = self.encoder.embedding.weight
         self.decoder.projection.weight = self.encoder.embedding.weight
 
 
-    def forward(self, inputs, targets):
-        targets = targets[:, :-1].contiguous()
+    def forward(self, inputs):
         input_mask = inputs.eq(0).data
         encoder_outputs = self.encoder(inputs)
-        tokens, probs = self.decoder(decoder_inputs=targets, encoder_outputs=encoder_outputs, encoder_mask=input_mask)
-        return tokens, probs
+        sequences = []
+        probs = []
+        for index, line in enumerate(inputs):
+            seq, prob = self.decoder.beam_search(encoder_outputs=encoder_outputs[index:index+1], encoder_mask=input_mask[index:index+1])
+            sequences.append(seq)
+            probs.append(prob)
+
+        return t.Tensor(sequences), t.Tensor(probs)
 
 
     def greedy_search(self, inputs, decode_lenth=None, if_sample=False):
@@ -55,30 +60,92 @@ class Transformer(t.nn.Module):
                 probs = t.cat([probs, output_probs], -2)
         return tokens, t.nn.functional.log_softmax(probs[:, 1:, :], -1)
 
-    def beam_search(self, inputs, decode_lenth=None, if_sample=False):
-        batch_size = inputs.size()[0]
-        input_mask = inputs.eq(0).data
-        device = inputs.device
 
-        encoder_outputs = self.encoder(inputs=inputs)
-        tokens = t.LongTensor([self.sos_id] * batch_size).unsqueeze(-1).to(device)  # batch of sos_id [B, x]
-        probs = t.zeros((batch_size, 1, self.vocabulary_size)).to(device)
-        if decode_lenth is not None:
-            step_cnt = decode_lenth - 1
-        else:
-            step_cnt = self.decode_max_lenth
-        for i in range(step_cnt):
-            output_token, output_probs = self.decoder.beam_search(decoder_inputs=tokens, encoder_outputs=encoder_outputs,
-                                                      encoder_mask=input_mask)
-            if not if_sample:
-                tokens = t.cat([tokens, output_token[:, -1:]], -1)
-                probs = t.cat([probs, output_probs], -2)
-            else:
-                output_token = t.nn.functional.softmax(output_probs, -1).multinomial(1)
-                tokens = t.cat([tokens, output_token], -1)
-                probs = t.cat([probs, output_probs], -2)
-        return tokens, t.nn.functional.log_softmax(probs[:, 1:, :], -1)
+class Beam_Decoder(t.nn.Module):
+    def __init__(self, args, num_head, input_size, hidden_size, dropout, num_block, matrix, encoder_max_lenth):
+        super(Beam_Decoder, self).__init__()
+        self.embedding = t.nn.Embedding(matrix.size()[0], matrix.size()[1], padding_idx=0, _weight=matrix)
+        self.position_embedding = PositionEncoding(encoder_max_lenth, matrix.size()[1])
+        self.decoder_blocks = t.nn.ModuleList([
+            DecoderBlock(num_head, input_size, hidden_size, dropout) for _ in range(num_block)
+        ])
+        self.projection = t.nn.Linear(matrix.size()[1], matrix.size()[0])
+        self.projection_scale = input_size ** -0.5
+        self.beam_size = args.beam_size
+        self.sos_id = args.sos_id
+        self.eos_id = args.eos_id
+        self.args = args
 
+    def get_self_attention_mask(self, inputs):
+        batch_size, seqlenth = inputs.size()
+        subsequent_mask = t.triu(
+            t.ones((seqlenth, seqlenth), device=inputs.device, dtype=t.uint8), diagonal=1)
+        subsequent_mask = subsequent_mask.unsqueeze(0).expand(batch_size, -1, -1)
+        return subsequent_mask
+
+    def get_dot_attention_mask(self, inputs, encoder_mask):
+        # encoder_mask B
+        inputs_mask = inputs.data.ne(0)
+        dot_attention_mask = (1 - t.bmm(inputs_mask.unsqueeze(-1).float(),
+                                        1 - encoder_mask.data.unsqueeze(-2).float())).byte()
+        return dot_attention_mask
+
+    def get_pad_mask(self, inputs):
+        mask = inputs.ne(0).data.float()
+        return mask
+
+    def init_topseqs(self):
+        top_seqs = [[[self.sos_id], 1.0]]
+        return top_seqs
+
+    def beam_step(self, decoder_inputs, encoder_outputs, encoder_mask):
+        self_attention_mask = self.get_self_attention_mask(decoder_inputs)
+        dot_attention_mask = self.get_dot_attention_mask(decoder_inputs, encoder_mask)
+        # inputs B, seqdecode, embedding_size
+        # encoder_outputs B, seq encoder , embedding_size
+        decoder_inputs_word = self.embedding(decoder_inputs)
+        decoder_inputs_posi = self.position_embedding(decoder_inputs)
+        decoder_inputs_vector = decoder_inputs_word + decoder_inputs_posi
+        non_pad_mask = self.get_pad_mask(decoder_inputs).unsqueeze(-1).expand_as(decoder_inputs_vector)
+        for decoder_block in self.decoder_blocks:
+            decoder_inputs_vector = decoder_block(decoder_inputs_vector, encoder_outputs, self_attention_mask,
+                                                  dot_attention_mask, non_pad_mask)
+        output = (self.projection(decoder_inputs_vector) * self.projection_scale)
+        output = t.nn.functional.softmax(output, dim=-1)
+        tokens = output.topk(self.beam_size)[-1]
+        probs = output.topk(self.beam_size)[0]
+        return tokens, probs
+
+    def beam_forward(self, top_seqs, encoder_outputs, encoder_mask):
+        all_seqs = []
+        device = encoder_outputs.device
+        for seq in top_seqs:
+            seq_score = seq[1]
+            seq_id = seq[0]
+            if seq_id[-1] == self.eos_id:
+                all_seqs.append((seq_id, seq_score, True))
+                continue
+            # get current step using encoder_context & seq
+            _word, _prob = self.beam_step(t.Tensor([seq_id]).long().to(device), encoder_outputs, encoder_mask)
+            for i in range(self.beam_size):
+                temp = seq_id
+                word = _word[0][0][i].item()
+                word_prob = _prob[0][0][i].item()
+                score = seq_score + word_prob
+                temp = temp + [word]
+                all_seqs.append([temp, score])
+        all_seqs = sorted(all_seqs, key=lambda seq: seq[1], reverse=True)
+        topk_seqs = all_seqs[:self.beam_size]
+        return topk_seqs
+
+    def beam_search(self, encoder_outputs, encoder_mask):
+        top_seqs = self.init_topseqs()
+        for _ in range(self.args.decoding_max_lenth):
+            top_seqs = self.beam_forward(top_seqs, encoder_outputs, encoder_mask)
+        top_seq = sorted(top_seqs, key=lambda seq: seq[1], reverse=True)[0]
+        seq = top_seq[0]
+        prob = top_seq[1]
+        return seq, prob
 
     #
     # def forward(self, inputs, decode_lenth=None, if_sample=False):
@@ -155,92 +222,6 @@ class Decoder(t.nn.Module):
         return tokens, probs
 
 
-class Beam_Decoder(t.nn.Module):
-    def __init__(self, args, num_head, input_size, hidden_size, dropout, num_block, matrix, encoder_max_lenth):
-        super(Beam_Decoder, self).__init__()
-        self.embedding = t.nn.Embedding(matrix.size()[0], matrix.size()[1], padding_idx=0, _weight=matrix)
-        self.position_embedding = PositionEncoding(encoder_max_lenth, matrix.size()[1])
-        self.decoder_blocks = t.nn.ModuleList([
-            DecoderBlock(num_head, input_size, hidden_size, dropout) for _ in range(num_block)
-        ])
-        self.projection = t.nn.Linear(matrix.size()[1], matrix.size()[0])
-        self.projection_scale = input_size ** -0.5
-        self.beam_size = args.beam_size
-        self.sos_id = args.sos_id
-
-
-    def get_self_attention_mask(self, inputs):
-        batch_size, seqlenth = inputs.size()
-        subsequent_mask = t.triu(
-            t.ones((seqlenth, seqlenth), device=inputs.device, dtype=t.uint8), diagonal=1)
-        subsequent_mask = subsequent_mask.unsqueeze(0).expand(batch_size, -1, -1)
-        return subsequent_mask
-
-    def get_dot_attention_mask(self, inputs, encoder_mask):
-        # encoder_mask B
-        inputs_mask = inputs.data.ne(0)
-        dot_attention_mask = (1-t.bmm(inputs_mask.unsqueeze(-1).float(), 1-encoder_mask.data.unsqueeze(-2).float())).byte()
-        return dot_attention_mask
-
-    def get_pad_mask(self, inputs):
-        mask = inputs.ne(0).data.float()
-        return mask
-
-    def init_topseqs(self):
-        top_seqs = [[[self.sos_id], 1.0]]
-        return top_seqs
-
-    def beam_step(self, decoder_inputs, encoder_outputs, encoder_mask):
-        self_attention_mask = self.get_self_attention_mask(decoder_inputs)
-        dot_attention_mask = self.get_dot_attention_mask(decoder_inputs, encoder_mask)
-        #inputs B, seqdecode, embedding_size
-        #encoder_outputs B, seq encoder , embedding_size
-        decoder_inputs_word = self.embedding(decoder_inputs)
-        decoder_inputs_posi = self.position_embedding(decoder_inputs)
-        decoder_inputs_vector = decoder_inputs_word + decoder_inputs_posi
-        non_pad_mask = self.get_pad_mask(decoder_inputs).unsqueeze(-1).expand_as(decoder_inputs_vector)
-        for decoder_block in self.decoder_blocks:
-            decoder_inputs_vector = decoder_block(decoder_inputs_vector, encoder_outputs, self_attention_mask, dot_attention_mask, non_pad_mask)
-        output = (self.projection(decoder_inputs_vector) * self.projection_scale)
-        output = t.nn.functional.softmax(output, dim=-1)
-        tokens = output.topk(self.beam_size)[-1]
-        probs = output.topk(self.beam_size)[0]
-        return tokens, probs
-
-    def beam_forward(self, top_seqs, encoder_outputs, encoder_mask):
-        all_seqs = []
-        device = encoder_outputs.device
-        for seq in top_seqs:
-            seq_score = seq[1]
-            seq_id = seq[0]
-            if seq_id[-1] == self.eos_id:
-                all_seqs.append((seq_id, seq_score, True))
-                continue
-            # get current step using encoder_context & seq
-            _word, _prob = self.beam_search_step(t.Tensor([seq_id]).long().to(device), encoder_outputs, encoder_mask)
-            for i in range(self.beam_size):
-                temp = seq_id
-                word = _word[0][0][i].item()
-                word_prob = _prob[0][0][i].item()
-                score = seq_score + word_prob
-                temp = temp + [word]
-                done = (word == self.eos_id)
-                all_seqs.append([temp, score, done])
-        all_seqs = sorted(all_seqs, key=lambda seq: seq[1], reverse=True)
-        topk_seqs = all_seqs[:self.beam_size]
-        all_done = self.check_all_done(topk_seqs)
-        return topk_seqs, all_done
-
-    def beam_search(self, encoder_outputs, encoder_mask):
-        top_seqs = self.init_topseqs()
-        for _ in range(self.args.decoding_max_lenth):
-            top_seqs, all_done = self.beam_search_forward(top_seqs, encoder_outputs, encoder_mask)
-            if all_done:
-                break
-        top_seq = sorted(top_seqs, key=lambda seq: seq[1], reverse=True)[0]
-        seq = top_seq[0]
-        prob = top_seq[1]
-        return seq, prob
 
 
 
@@ -462,7 +443,7 @@ if __name__ == '__main__':
     mm = t.nn.DataParallel(transformer).cuda()
 #    output = transformer(inputs)
 #    output2 = transformer(inputs)
-    mm.load_state_dict(t.load('ckpt/20180913_233530/saved_models/2018_09_16_18_31_10T0.6108602118195541/model'))
+#     mm.load_state_dict(t.load('ckpt/20180913_233530/saved_models/2018_09_16_18_31_10T0.6108602118195541/model'))
     from torch.utils.data import Dataset, DataLoader
     from DataSets import DataSet
     from DataSets import own_collate_fn
@@ -479,7 +460,7 @@ if __name__ == '__main__':
     with t.no_grad():
         for data in test_loader:
             context, title, context_lenths, title_lenths = [i.to('cuda') for i in data]
-            token_id, prob_vector = mm.module.greedy_search(context)
+            token_id, prob_vector = mm.module(context)
             score = batch_scorer(token_id.tolist(), title.tolist(), args.eos_id)
             context_word = [[vocab.from_id_token(id.item()) for id in sample] for sample in context]
             words = [[vocab.from_id_token(id.item()) for id in sample] for sample in token_id]

@@ -6,7 +6,6 @@ seg = Seg_only()
 stopwords = [line.strip() for line in open('Predictor/Utils/stopwords.dat.txt', 'r', encoding='utf-8').readlines()]
 
 
-
 def clean(input):
     input = strq2b(input)
     input = re.sub(pattern, '#', input)

@@ -76,8 +76,6 @@ class Trainner_transformer(object):
             optim = loaded['optim']
             model = loaded['model']
             print(self.global_step, self.global_epoch)
-            ##################################
-            self.global_step = 0
         self.summary_writer = SummaryWriter(self.tensorboard_root)
         print(f'summary writer running in:')
         print(f'tensorboard --logdir {self.tensorboard_root}')
@@ -109,7 +107,7 @@ class Trainner_transformer(object):
         self.summary_writer.add_scalar('lr', optim.current_lr, self.global_step)
         self.global_step += 1
 
-    def _data2loss(self, model, loss_func, data, score_func=None, ret_words=False):
+    def _data2loss(self, model, loss_func, data, score_func=None, ret_words=False, is_train=True):
         context, title, context_lenths, title_lenths = [i.cuda() for i in data]
         token_id, prob_vector = model(context, title)
         loss = loss_func(prob_vector, title)

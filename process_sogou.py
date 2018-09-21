@@ -86,7 +86,7 @@ def is_uchar(uchar):
     """判断一个unicode是否是英文字母"""
     if (uchar >= u'\u0041' and uchar<=u'\u005a') or (uchar >= u'\u0061' and uchar<=u'\u007a'):
             return True
-    if uchar in ('-', ',', '，', '。', '.', '?', ':', ';'):
+    if uchar in ('-', ',', '，', '。', '.', '?', ':', ';', '%'):
             return True
     return False
 
@@ -127,7 +127,7 @@ def process_data(data):
     data = data[1]
     #data['article'] = is_ustr(data.article.replace('<Paragraph>', ''))
     data['article'] = is_ustr(remove(strq2b(data.article)))
-    data['summarization'] = is_ustr(remove(data.summarization))
+    data['summarization'] = is_ustr(remove(strq2b(data.summarization)))
     data['article'] = data['article'][:400]
     if len(data['article']) > 350:
         data['article'] = data['article'][:data['article'].rfind('。')+1]
@@ -143,7 +143,7 @@ def middle_process_save(df, set):
             result = executor.map(process_data, df.iterrows())
         nresult = []
         for i in tqdm(result, desc='append'):
-            if len(i['article_char']) > 17:
+            if len(i['article_char']) > 100:
                 nresult.append(i)
         for res in tqdm(nresult):
             json.dump(res, writer, ensure_ascii=False)

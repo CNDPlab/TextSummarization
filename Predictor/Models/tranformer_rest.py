@@ -66,6 +66,59 @@ class TransformerREST(t.nn.Module):
                 probs = t.cat([probs, output_probs], -2)
         return tokens, t.nn.functional.log_softmax(probs[:, 1:, :], -1)
 
+    def init_topseqs(self):
+        top_seqs = [[[self.sos_id], 1.0]]
+        return top_seqs
+
+    def beam_step(self, decoder_inputs, encoder_outputs, encoder_mask):
+        self_attention_mask = self.get_self_attention_mask(decoder_inputs)
+        dot_attention_mask = self.get_dot_attention_mask(decoder_inputs, encoder_mask)
+        # inputs B, seqdecode, embedding_size
+        # encoder_outputs B, seq encoder , embedding_size
+        decoder_inputs_word = self.embedding(decoder_inputs)
+        decoder_inputs_posi = self.position_embedding(decoder_inputs)
+        decoder_inputs_vector = decoder_inputs_word + decoder_inputs_posi
+        non_pad_mask = self.get_pad_mask(decoder_inputs).unsqueeze(-1).expand_as(decoder_inputs_vector)
+        for decoder_block in self.decoder_blocks:
+            decoder_inputs_vector = decoder_block(decoder_inputs_vector, encoder_outputs, self_attention_mask,
+                                                  dot_attention_mask, non_pad_mask)
+        output = (self.projection(decoder_inputs_vector) * self.projection_scale)
+        output = t.nn.functional.softmax(output, dim=-1)
+        tokens = output.topk(self.beam_size)[-1]
+        probs = output.topk(self.beam_size)[0]
+        return tokens, probs
+
+    def beam_forward(self, top_seqs, encoder_outputs, encoder_mask):
+        all_seqs = []
+        device = encoder_outputs.device
+        for seq in top_seqs:
+            seq_score = seq[1]
+            seq_id = seq[0]
+            if seq_id[-1] == self.eos_id:
+                all_seqs.append((seq_id, seq_score, True))
+                continue
+            # get current step using encoder_context & seq
+            #ipdb.set_trace()
+            _word, _prob = self.beam_step(t.Tensor([seq_id]).long().to(device), encoder_outputs, encoder_mask)
+            for i in range(self.beam_size):
+                temp = seq_id
+                word = _word[0][-1][i].item()
+                word_prob = _prob[0][-1][i].item()
+                score = seq_score + word_prob
+                temp = temp + [word]
+                all_seqs.append([temp, score])
+        all_seqs = sorted(all_seqs, key=lambda seq: seq[1], reverse=True)
+        topk_seqs = all_seqs[:self.beam_size]
+        return topk_seqs
+
+    def beam_search(self, encoder_outputs, encoder_mask):
+        top_seqs = self.init_topseqs()
+        for _ in range(self.args.decoding_max_lenth):
+            top_seqs = self.beam_forward(top_seqs, encoder_outputs, encoder_mask)
+        top_seq = sorted(top_seqs, key=lambda seq: seq[1], reverse=True)[0]
+        seq = top_seq[0]
+        prob = top_seq[1]
+        return seq, prob
 
 
 class Decoder(t.nn.Module):

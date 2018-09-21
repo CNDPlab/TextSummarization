@@ -4,9 +4,9 @@ import ipdb
 from collections import OrderedDict
 
 
-class Transformer(t.nn.Module):
+class TransformerREST(t.nn.Module):
     def __init__(self, args, matrix):
-        super(Transformer, self).__init__()
+        super(TransformerREST, self).__init__()
         self.matrix = matrix
         self.matrix[0] = 0
         self.num_head = args.num_head

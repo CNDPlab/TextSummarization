@@ -19,6 +19,7 @@ class Config(object):
     device = 'cuda:1'
     exp_root = None
     embedding_dim = 256
+    attention_range = 10
     encoder_max_lenth = 500
     max_step_lenth = 7
     epochs = 50

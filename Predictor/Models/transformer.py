@@ -37,7 +37,6 @@ class Transformer(t.nn.Module):
 
 
     def beam_search(self, inputs):
-
         input_mask = inputs.eq(0).data
         encoder_outputs = self.encoder(inputs)
         sequences = []
@@ -46,7 +45,6 @@ class Transformer(t.nn.Module):
             seq, prob = self.decoder.beam_search(encoder_outputs=encoder_outputs[index:index+1], encoder_mask=input_mask[index:index+1])
             sequences.append(seq)
             probs.append(prob)
-
         return t.Tensor(sequences), t.Tensor(probs)
 
 

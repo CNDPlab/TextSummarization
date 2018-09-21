@@ -14,7 +14,7 @@ class Config(object):
     saved_vocab = 'Predictor/Utils/vocab.pkl'
     ckpt_root = 'ckpt/'
     saved_model_root = 'ckpt/saved_models/'
-    model_name = 'Transformer'
+    model_name = 'TransformerREST'
     resume = False
     device = 'cuda:1'
     exp_root = None

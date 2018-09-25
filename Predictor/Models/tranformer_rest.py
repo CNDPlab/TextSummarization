@@ -22,6 +22,11 @@ class TransformerREST(t.nn.Module):
 
         self.encoder = Encoder(self.num_head, self.input_size, self.hidden_size, self.dropout, self.num_block, matrix, self.encoder_max_lenth, self.attention_range)
         self.decoder = Decoder(self.num_head, self.input_size, self.hidden_size, self.dropout, self.num_block, matrix, self.encoder_max_lenth, self.attention_range)
+
+        self.decoder.args = args
+        self.decoder.beam_size = args.beam_size
+        self.decoder.sos_id = args.sos_id
+        self.decoder.eos_id = args.eos_id
         self.decoder.embedding.weight = self.encoder.embedding.weight
         self.decoder.projection.weight = self.encoder.embedding.weight
 
@@ -65,6 +70,55 @@ class TransformerREST(t.nn.Module):
                 tokens = t.cat([tokens, output_token], -1)
                 probs = t.cat([probs, output_probs], -2)
         return tokens, t.nn.functional.log_softmax(probs[:, 1:, :], -1)
+
+
+
+
+class Decoder(t.nn.Module):
+    def __init__(self, num_head, input_size, hidden_size, dropout, num_block, matrix, encoder_max_lenth, attention_range):
+        super(Decoder, self).__init__()
+        self.embedding = t.nn.Embedding(matrix.size()[0], matrix.size()[1], padding_idx=0, _weight=matrix)
+        self.position_embedding = PositionEncoding(encoder_max_lenth, matrix.size()[1])
+        self.decoder_blocks = t.nn.ModuleList([
+            DecoderBlock(num_head, input_size, hidden_size, dropout) for _ in range(num_block)
+        ])
+        self.projection = t.nn.Linear(matrix.size()[1], matrix.size()[0])
+        self.projection_scale = input_size ** -0.5
+        self.attention_range = attention_range
+
+    def get_self_attention_mask(self, inputs):
+        batch_size, seqlenth = inputs.size()
+        subsequent_mask = t.triu(
+            t.ones((seqlenth, seqlenth), device=inputs.device, dtype=t.uint8), diagonal=1)
+        subsequent_mask = subsequent_mask.unsqueeze(0).expand(batch_size, -1, -1)
+        return subsequent_mask
+
+    def get_dot_attention_mask(self, inputs, encoder_mask):
+        # encoder_mask B
+        inputs_mask = inputs.data.ne(0)
+        dot_attention_mask = (1-t.bmm(inputs_mask.unsqueeze(-1).float(), 1-encoder_mask.data.unsqueeze(-2).float())).byte()
+        return dot_attention_mask
+
+    def get_pad_mask(self, inputs):
+        mask = inputs.ne(0).data.float()
+        return mask
+
+
+    def forward(self, decoder_inputs, encoder_outputs, encoder_mask):
+
+        self_attention_mask = self.get_self_attention_mask(decoder_inputs)
+        dot_attention_mask = self.get_dot_attention_mask(decoder_inputs, encoder_mask)
+        #inputs B, seqdecode, embedding_size
+        #encoder_outputs B, seq encoder , embedding_size
+        decoder_inputs_word = self.embedding(decoder_inputs)
+        decoder_inputs_posi = self.position_embedding(decoder_inputs)
+        decoder_inputs_vector = decoder_inputs_word + decoder_inputs_posi
+        non_pad_mask = self.get_pad_mask(decoder_inputs).unsqueeze(-1).expand_as(decoder_inputs_vector)
+        for decoder_block in self.decoder_blocks:
+            decoder_inputs_vector = decoder_block(decoder_inputs_vector, encoder_outputs, self_attention_mask, dot_attention_mask, non_pad_mask)
+        probs = (self.projection(decoder_inputs_vector) * self.projection_scale)
+        tokens = probs.argmax(-1)
+        return tokens, probs
 
     def init_topseqs(self):
         top_seqs = [[[self.sos_id], 1.0]]
@@ -119,53 +173,6 @@ class TransformerREST(t.nn.Module):
         seq = top_seq[0]
         prob = top_seq[1]
         return seq, prob
-
-
-class Decoder(t.nn.Module):
-    def __init__(self, num_head, input_size, hidden_size, dropout, num_block, matrix, encoder_max_lenth, attention_range):
-        super(Decoder, self).__init__()
-        self.embedding = t.nn.Embedding(matrix.size()[0], matrix.size()[1], padding_idx=0, _weight=matrix)
-        self.position_embedding = PositionEncoding(encoder_max_lenth, matrix.size()[1])
-        self.decoder_blocks = t.nn.ModuleList([
-            DecoderBlock(num_head, input_size, hidden_size, dropout) for _ in range(num_block)
-        ])
-        self.projection = t.nn.Linear(matrix.size()[1], matrix.size()[0])
-        self.projection_scale = input_size ** -0.5
-        self.attention_range = attention_range
-
-    def get_self_attention_mask(self, inputs):
-        batch_size, seqlenth = inputs.size()
-        subsequent_mask = t.triu(
-            t.ones((seqlenth, seqlenth), device=inputs.device, dtype=t.uint8), diagonal=1)
-        subsequent_mask = subsequent_mask.unsqueeze(0).expand(batch_size, -1, -1)
-        return subsequent_mask
-
-    def get_dot_attention_mask(self, inputs, encoder_mask):
-        # encoder_mask B
-        inputs_mask = inputs.data.ne(0)
-        dot_attention_mask = (1-t.bmm(inputs_mask.unsqueeze(-1).float(), 1-encoder_mask.data.unsqueeze(-2).float())).byte()
-        return dot_attention_mask
-
-    def get_pad_mask(self, inputs):
-        mask = inputs.ne(0).data.float()
-        return mask
-
-
-    def forward(self, decoder_inputs, encoder_outputs, encoder_mask):
-
-        self_attention_mask = self.get_self_attention_mask(decoder_inputs)
-        dot_attention_mask = self.get_dot_attention_mask(decoder_inputs, encoder_mask)
-        #inputs B, seqdecode, embedding_size
-        #encoder_outputs B, seq encoder , embedding_size
-        decoder_inputs_word = self.embedding(decoder_inputs)
-        decoder_inputs_posi = self.position_embedding(decoder_inputs)
-        decoder_inputs_vector = decoder_inputs_word + decoder_inputs_posi
-        non_pad_mask = self.get_pad_mask(decoder_inputs).unsqueeze(-1).expand_as(decoder_inputs_vector)
-        for decoder_block in self.decoder_blocks:
-            decoder_inputs_vector = decoder_block(decoder_inputs_vector, encoder_outputs, self_attention_mask, dot_attention_mask, non_pad_mask)
-        probs = (self.projection(decoder_inputs_vector) * self.projection_scale)
-        tokens = probs.argmax(-1)
-        return tokens, probs
 
 
 
@@ -387,11 +394,9 @@ if __name__ == '__main__':
     args.batch_size=2
     print(args.sos_id)
     matrix = vocab.matrix
-    transformer = Transformer(args, matrix)
+    transformer = TransformerREST(args, matrix)
     mm = t.nn.DataParallel(transformer).cuda()
-#    output = transformer(inputs)
-#    output2 = transformer(inputs)
-#     mm.load_state_dict(t.load('ckpt/20180913_233530/saved_models/2018_09_16_18_31_10T0.6108602118195541/model'))
+    mm.load_state_dict(t.load('ckpt/20180921_051838/saved_models/2018_09_24_12_06_07T0.6543107609842745/model'))
     from torch.utils.data import Dataset, DataLoader
     from DataSets import DataSet
     from DataSets import own_collate_fn
@@ -408,16 +413,19 @@ if __name__ == '__main__':
     with t.no_grad():
         for data in test_loader:
             context, title, context_lenths, title_lenths = [i.to('cuda') for i in data]
-            token_id, prob_vector = mm.module(context)
-            score = batch_scorer(token_id.tolist(), title.tolist(), args.eos_id)
+            token_id_beam, prob_vector_beam = mm.module.beam_search(context)
+            token_id, prob_vector = mm.module.greedy_search(context)
             context_word = [[vocab.from_id_token(id.item()) for id in sample] for sample in context]
             words = [[vocab.from_id_token(id.item()) for id in sample] for sample in token_id]
             title_words = [[vocab.from_id_token(id.item()) for id in sample] for sample in title]
 
-            for i in zip(context_word, words, title_words):
+            words_beam = [[vocab.from_id_token(id.item()) for id in sample] for sample in token_id_beam]
+
+            for i in zip(context_word, words, title_words, words_beam):
                 a = input('next')
                 context = ''.join(i[0])
                 pre = ''.join(i[1])
+                pre_beam = ''.join(i[3])
                 tru = ''.join(i[2])
                 print('context:')
                 print(f'{context}')
@@ -425,6 +433,10 @@ if __name__ == '__main__':
                 print('pre:')
                 print(f'{pre}')
                 print('------------')
+                print('pre_beam:')
+                print(f'{pre_beam}')
+                print('------------')
                 print('tru:')
                 print(f'{tru}')
                 print('===========================================')
+

@@ -47,53 +47,21 @@ def _load(path, model):
             'model': model}
 
 
-def test(**kwargs):
-    args = Config()
-    test_set = DataSet(args.processed_folder+'test/')
-    test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=True, collate_fn=own_collate_fn)
-    vocab = pk.load(open('Predictor/Utils/vocab.pkl', 'rb'))
-    eos_id, sos_id = vocab.token2id['<EOS>'], vocab.token2id['<BOS>']
-    args.eos_id = eos_id
-    args.sos_id = sos_id
-    model = getattr(Models, args.model_name)(matrix=vocab.matrix, args=args)
-    load = _load('ckpt/20180905_050558/saved_models/2018_09_05_10_09_51T0.26404303538086066', model)
-    model = load['model']
-    model.to('cuda')
-    #TODO complete load_state_dict and predict
-    model.teacher_forcing_ratio = -100
-    with t.no_grad():
-        for data in tqdm(test_loader,desc='test'):
-            context, title, context_lenths, title_lenths = [i.to('cuda') for i in data]
-            #token_id, prob_vector, token_lenth, attention_matrix = model.beam_forward(context, context_lenths)
-            token_id = model.beam_forward(context, context_lenths)
-            #score = batch_scorer(token_id.tolist(), title.tolist(), args.eos_id)
-            context_word = [''.join([vocab.from_id_token(id.item()) for id in sample]) for sample in context]
-            words = [''.join([vocab.from_id_token(id) for id in sample]) for sample in token_id]
-            title_words = [''.join([vocab.from_id_token(id.item()) for id in sample]) for sample in title]
-            for i in zip(context_word, words, title_words):
-                a = input('next')
-                print(f'context:{i[0]}\n,pre:{i[1]},\n tru:{i[2]}')
-                
+from Predictor import Summarizer
+from flask import Flask, request, render_template
+app = Flask(__name__)
 
+@app.route('/')
+def welcome():
+    return render_template('base.html')
 
-
-    # while True:
-    #     x = input('input context:')
-    #     token_x = predict_pipeline(x)
-    #     lenth_x = len(token_x)
-    #     input_context = t.Tensor([token_x]).long()
-    #     input_context_lenth = t.Tensor([lenth_x]).long()
-
-
-
-# def predict(**kwargs):
-#     args = Config()
-#
-#     model = getattr(Models, args.model_name)(matrix=vocab.matrix, args=args)
-#     model.load_state_dicts(t.load())
+@app.route('/', methods=['POST'])
+def predict():
+    message = request.form['text']
+    summ = Summarizer()
+    res = summ.predict(message)
+    return render_template('processed.html', result=res)
 
 
 if __name__ == '__main__':
-    fire.Fire()
-
-
+    app.run(debug=True)

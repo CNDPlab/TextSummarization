@@ -148,9 +148,9 @@ class Decoder(t.nn.Module):
         for seq in top_seqs:
             seq_score = seq[1]
             seq_id = seq[0]
-            if seq_id[-1] == self.eos_id:
-                all_seqs.append((seq_id, seq_score, True))
-                continue
+            # if seq_id[-1] == self.eos_id:
+            #     all_seqs.append((seq_id, seq_score, True))
+            #     continue
             # get current step using encoder_context & seq
             #ipdb.set_trace()
             _word, _prob = self.beam_step(t.Tensor([seq_id]).long().to(device), encoder_outputs, encoder_mask)
@@ -391,7 +391,7 @@ if __name__ == '__main__':
     vocab = pk.load(open('Predictor/Utils/sogou_vocab.pkl', 'rb'))
     args = Config()
     args.sos_id = vocab.token2id['<BOS>']
-    args.batch_size=2
+    args.batch_size = 2
     print(args.sos_id)
     matrix = vocab.matrix
     transformer = TransformerREST(args, matrix)

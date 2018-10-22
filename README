@@ -8,3 +8,5 @@ rouge metric: https://github.com/pcyin/PyRouge
 3: UniversalTransformer
 4：use copynet
 5: RL
+
+result : res.rtf 

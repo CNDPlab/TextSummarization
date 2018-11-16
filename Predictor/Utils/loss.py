@@ -16,6 +16,21 @@ def loss_function(inputs, targets):
     loss = t.nn.functional.cross_entropy(inputs, targets, ignore_index=0,)
     return loss
 
+def masked_cross_entropy2(inputs, targets, target_lenth):
+    """
+    :param inputs:  [B, imaxlenth, vocabulary_size] float
+    :param targets:  [B, tmaxlenth]
+    :param lenths: [B]
+    :return: loss tensor [1]
+    """
+
+    vocabulary_size = inputs.size()[-1]
+    inputs = inputs.view(-1, vocabulary_size)
+    targets = targets.view(-1)
+    losses = t.nn.functional.nll_loss(inputs, targets, ignore_index = 0)
+
+    return losses
+
 def masked_cross_entropy(inputs, targets, target_lenth):
     """
     :param inputs:  [B, imaxlenth, vocabulary_size] float

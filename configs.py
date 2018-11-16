@@ -4,8 +4,13 @@ import warnings
 class Config(object):
     datas_root = 'Datas/'
     raw_folder = 'Datas/LCSTS2.0/'
+    sog_raw = 'Datas/raw/'
+    sog_middle = 'Datas/sog_middle/'
+    sog_processed = 'Datas/sog_processed/'
     middle_folder = 'Datas/middle/'
     processed_folder = 'Datas/processed/'
+    nlpcc_middle = 'Datas/nlpcc_middle/'
+    nlpcc_processed = 'Datas/nlpcc_processed/'
     saved_vocab = 'Predictor/Utils/vocab.pkl'
     ckpt_root = 'ckpt/'
     saved_model_root = 'ckpt/saved_models/'
@@ -14,20 +19,22 @@ class Config(object):
     device = 'cuda:1'
     exp_root = None
     embedding_dim = 256
+    attention_range = 10
     encoder_max_lenth = 500
+    max_step_lenth = 7
     epochs = 50
     beam_size = 10
     num_head = 8
-    batch_size = 192
+    batch_size = 64
     padding_idx = 0
     hidden_size = 64
-    dropout = 0.2
+    dropout = 0.1
     num_layers = 1
     num_model_tosave = 3
     sos_id = None
     eos_id = None
     decoding_max_lenth = 50
-    eval_every_step = 500
+    eval_every_step = 2000
     save_every_step = 4000
     unk_ratio = 0.3
 

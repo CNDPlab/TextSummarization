@@ -14,6 +14,14 @@ import time
 import pickle as pk
 import gensim
 from Predictor.Utils.T_S.lang_conv import *
+import ipdb
+from sklearn.model_selection import train_test_split
+from configs import Config
+from Predictor.Utils import Vocab
+from tqdm import tqdm
+from concurrent.futures import ProcessPoolExecutor
+from cytoolz import concatv
+
 
 start = time.time()
 args = Config()
@@ -69,15 +77,14 @@ def is_uchar(uchar):
             return True
     return False
 
-stopwords = [line.strip() for line in open('Predictor/Utils/stopwords.dat.txt', 'r', encoding='utf-8').readlines()]
 converter = Converter('zh-hans')
 
 def process_data(data):
     data = data[1]
     data['text'] = is_ustr(converter.convert(data.text))
     data['summary'] = is_ustr(converter.convert(data.summary))
-    data['text_char'] = ['<BOS>'] + [i for i in data.text if i not in stopwords] + ['<EOS>']
-    data['summary_char'] = ['<BOS>'] + [i for i in data.summary if i not in stopwords] + ['<EOS>']
+    data['text_char'] = ['<BOS>'] + [i for i in data.text] + ['<EOS>']
+    data['summary_char'] = ['<BOS>'] + [i for i in data.summary] + ['<EOS>']
     del data['text'], data['summary']
     line = {i: data[i] for i in data.keys()}
     return line

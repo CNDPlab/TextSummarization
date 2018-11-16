@@ -1,5 +1,6 @@
 import torch as t
 from Predictor.Models import CustomRnn
+import ipdb
 
 
 class Encoder(t.nn.Module):
@@ -21,7 +22,7 @@ if __name__ == '__main__':
     inputs = t.Tensor([[1, 2, 3, 0], [4, 6, 0, 0], [3, 0, 0, 0]]).long()
     lenths = t.Tensor([3, 2, 1])
     embedding = t.nn.Embedding(10, 5, padding_idx=0)
-    encoder = Encoder('GRU', 5, 5, 2, 0)
+    encoder = Encoder('GRU', 5, 10, 2, 0)
 
     net = embedding(inputs)
     net = encoder(net, lenths)

@@ -66,8 +66,8 @@ class Trainner_transformer(object):
             os.mkdir(self.tensorboard_root)
             os.mkdir(self.model_root)
         print(f'exp_root{self.exp_root}')
-        model.to(self.device)
-        optimizer = t.optim.Adam([i for i in model.parameters() if i.requires_grad == True])
+        model = t.nn.DataParallel(model).cuda()
+        optimizer = t.optim.Adam([i for i in model.parameters() if i.requires_grad is True])
         optim = ScheduledOptim(optimizer, self.args.embedding_dim, 4000, n_current_steps=self.global_step)
         if resume:
             loaded = self._load(self.get_best_cpath(), model)
@@ -100,15 +100,16 @@ class Trainner_transformer(object):
         optim.zero_grad()
         train_loss = self._data2loss(model, loss_func, data)
         train_loss.backward()
+        model.module.encoder.embedding.weight.grad.data[0] = 0
         t.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=5.0)
         optim.step_and_update_lr()
         self.summary_writer.add_scalar('loss/train_loss', train_loss.item(), self.global_step)
         self.summary_writer.add_scalar('lr', optim.current_lr, self.global_step)
         self.global_step += 1
 
-    def _data2loss(self, model, loss_func, data, score_func=None, ret_words=False):
-        context, title, context_lenths, title_lenths = [i.to(self.device) for i in data]
-        token_id, prob_vector = model(inputs=context, targets=title)
+    def _data2loss(self, model, loss_func, data, score_func=None, ret_words=False, is_train=True):
+        context, title, context_lenths, title_lenths = [i.cuda() for i in data]
+        token_id, prob_vector = model(context, title)
         loss = loss_func(prob_vector, title)
         if score_func is None:
             if not ret_words:
@@ -143,8 +144,8 @@ class Trainner_transformer(object):
         return eval_scores
 
     def write_sample_result_text(self, token_id, title):
-        token_list = token_id.tolist()[0]
-        title_list = title.tolist()[0]
+        token_list = token_id.data.tolist()[0]
+        title_list = title.data.tolist()[0]
         word_list = [self.vocab.from_id_token(word) for word in token_list]
         title_list = [self.vocab.from_id_token(word) for word in title_list]
         word_pre = ' '.join(word_list) + '---' + ' '.join(title_list)

@@ -34,7 +34,7 @@ class Vocab(object):
     def use_pretrained(self, model):
         model = model
         w2v = model.wv
-        matrix = t.nn.Embedding(len(self.token2id), model.vector_size).weight
+        matrix = t.nn.Embedding(len(self.token2id), model.vector_size, padding_idx=0).weight
         t.nn.init.xavier_normal_(matrix)
 
         oovs = []
